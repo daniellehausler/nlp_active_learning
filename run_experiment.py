@@ -11,27 +11,30 @@ from sklearn.ensemble import RandomForestClassifier
 #  4. parallel run of multiple experiments
 
 DATA_SET = r'data_with_vectors\imdb_labelled.parquet'
-N_ITER = 5
+N_SAMPLE = 100
+TEST_SIZE = 0.2
 
 data = pd.read_parquet(DATA_SET)
-sentences = [np.array(sent.tolist()) for sent in data.embedded.tolist()]
-labels = data.Label.values.tolist()
+sentences = np.array([np.array(sent.tolist()) for sent in data.embedded.tolist()])
+labels = np.array([np.array([label]) for label in data.Label.values])
 
-X_train, X_test, y_train, y_test = train_test_split(sentences, labels, test_size=0.2)
+X_train, X_test, y_train, y_test = train_test_split(sentences, labels, test_size=TEST_SIZE)
 
 # RF classifier example:
 learner = ActiveLearner(
     clf=RandomForestClassifier(),
     initialization_method=group_cosine_distance_mean,
-    n_samples=100
+    n_samples=N_SAMPLE
 )
+
+N_ITER = int((len(sentences)*(1-TEST_SIZE)) // N_SAMPLE)
 
 # learning loop:
 for i in range(N_ITER):
 
-    sampled_index = learner.add_n_new_samples(sample_method=cosine_distance_mean)
-    X_train = np.delete(X_train, sampled_index)
-    y_train = np.delete(y_train, sampled_index)
+    sampled_index = learner.add_n_new_samples(sample_method=cosine_distance_mean, x=X_train, y=y_train)
+    X_train = np.delete(X_train, sampled_index, 0)
+    y_train = np.delete(y_train, sampled_index, 0)
     learner.fit_model()
     learner.accuracy_score(X_test, y_test)
     learner.f1_score(X_test, y_test)

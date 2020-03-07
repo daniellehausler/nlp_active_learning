@@ -22,13 +22,14 @@ class ActiveLearner:
         self._f1_score = []
         self._accuracy_score = []
 
-    def initialize_learner(self, x: np.array, y: np.array) -> np.array:
+    def initialize_learner(self, x: np.array, y: np.array, n_sample: int) -> np.array:
         """
+        :param n_sample: number of samples for initialization the learner
         :param x: embedded sentences
         :param y: labels
         """
 
-        ind = self._initialization_method(x)
+        ind = self._initialization_method(x, n_sample)
         self._train_sentences = x[ind]
         self._train_labels = y[ind]
 
@@ -52,11 +53,11 @@ class ActiveLearner:
         assert len(x) == len(y), "len of sentences doesn't match len of labels"
         assert len(x) >= self._n_samples, "there are not enough samples to add"
 
-        if not self._train_sentences:
-            ind = self._initialization_method(x, y)
+        if self._train_sentences is None:
+            ind = self.initialize_learner(x, y, n_sample=int(self._n_samples/2))
 
         else:
-            ind = sample_method(x, self._train_sentences, self._n_samples, *sampling_args)
+            ind = sample_method(x, self._train_sentences, int(self._n_samples), *sampling_args)
             self._train_sentences = np.vstack((self._train_sentences, x[ind]))
             self._train_labels = np.vstack((self._train_labels, y[ind]))
 
