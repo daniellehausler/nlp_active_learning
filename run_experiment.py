@@ -1,11 +1,10 @@
 from typing import Callable, Dict
 
 import pandas as pd
-from nlp_active_learning.active_learning import ActiveLearner
-from nlp_active_learning.sample_methods import *
+from active_learning import ActiveLearner
+from sample_methods import *
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from nlp_active_learning.model import Model
+from model import Model
 
 # TODO :
 #  1. add pre process part ,

@@ -1,7 +1,7 @@
 from typing import Callable
 import numpy as np
 from sklearn.metrics import f1_score, accuracy_score
-from nlp_active_learning.sample_methods import cosine_distance_mean, group_cosine_distance_mean
+from sample_methods import cosine_distance_mean, group_cosine_distance_mean
 
 
 class ActiveLearner:
