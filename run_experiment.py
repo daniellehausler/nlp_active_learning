@@ -1,3 +1,5 @@
+from typing import Callable, Dict
+
 import pandas as pd
 from nlp_active_learning.active_learning import ActiveLearner
 from nlp_active_learning.sample_methods import *
@@ -11,6 +13,34 @@ from nlp_active_learning.model import Model
 #  3. add a method to run experiments and save results,
 #  4. parallel run of multiple experiments
 
+
+def run_experiment(
+        active_learner: ActiveLearner,
+        model: Model,
+        embeddings_train: np.array,
+        train_sent: np.array,
+        test_sent: np.array,
+        train_y: np.array,
+        test_y: np.array,
+        n_iter: int,
+        sample_method: Callable
+) -> Dict:
+    for i in range(n_iter):
+        sampled_index = active_learner.add_n_new_samples(
+            sample_method=sample_method,
+            x=embeddings_train,
+            y=train_y,
+            raw_sentences=train_sent)
+
+        train_sent = np.delete(train_sent, sampled_index, 0)
+        train_y = np.delete(train_y, sampled_index, 0)
+        embeddings_train = np.delete(embeddings_train, sampled_index, 0)
+
+        model.evaluate(active_learner.get_raw_train_sent(), test_sent, active_learner.get_y_train(), test_y)
+
+    return model.get_scores()
+
+
 DATA_SET = r'data_with_vectors\imdb_labelled.parquet'
 N_SAMPLE = 100
 TEST_SIZE = 0.2
@@ -20,7 +50,8 @@ embeddings = np.array([np.array(sent.tolist()) for sent in data.embedded.tolist(
 labels = np.array([np.array([label]) for label in data.Label.values])
 sentences = np.array([sent for sent in data.sentence.tolist()])
 indices = np.arange(len(sentences))
-X_train, X_test, y_train, y_test, train_indices, test_indices = train_test_split(embeddings, labels, indices, test_size=TEST_SIZE)
+X_train, X_test, y_train, y_test, train_indices, test_indices = train_test_split(embeddings, labels, indices,
+                                                                                 test_size=TEST_SIZE)
 
 train_sentences = sentences[train_indices]
 test_sentences = sentences[test_indices]
@@ -35,17 +66,16 @@ m = Model('RandomForest')
 
 N_ITER = int((len(embeddings) * (1 - TEST_SIZE)) // N_SAMPLE)
 
-# learning loop:
-for i in range(N_ITER):
 
-    sampled_index = learner.add_n_new_samples(sample_method=cosine_distance_mean, x=X_train, y=y_train)
-    X_train = np.delete(X_train, sampled_index, 0)
-    sentences_to_fit = train_sentences[sampled_index]
-    y_to_fit = y_train[sampled_index]
-    train_sentences = np.delete(train_sentences, sampled_index, 0)
-    y_train = np.delete(y_train, sampled_index, 0)
-    m.evaluate(sentences_to_fit, test_sentences, y_to_fit, y_test)
+# run experiment:
 
-
-# results:
-m.get_scores()
+scores = run_experiment(
+        active_learner=learner,
+        model=m,
+        embeddings_train=X_train,
+        train_sent=train_sentences,
+        test_sent=test_sentences,
+        train_y=y_train,
+        test_y=y_test,
+        n_iter=N_ITER,
+        sample_method=cosine_distance_mean)
