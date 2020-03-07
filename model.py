@@ -1,50 +1,60 @@
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import BernoulliNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.metrics import classification_report
 from sklearn.svm import SVC
 import pandas as pd
 
-df = pd.read_parquet('/Users/uri/nlp_active_learning/data_with_vectors/yelp_labelled.parquet')
+df = pd.read_parquet('data_with_vectors/yelp_labelled.parquet')
 
 
 class Model:
+    """
+    >>> m = Model('RandomForest')
+    >>> m.evaluate(X_train, X_test, y_train, y_test)
+    >>> m.get_scores()
+    """
 
-    def __init__(self):
-        self.solver = 'sklearn' #TODO : Option for other type of solvers (lstm etc)
+    def __init__(self, clf_name):
+        # TODO : Option for other type of solvers (lstm etc)
+        self._clf = {
+            'RandomForest': self.sklearn_pipeline(RandomForestClassifier()),
+            'RBF_SVM': self.sklearn_pipeline(RandomForestClassifier(SVC(gamma=2, C=1))),
+        }
+        self._model = self._clf[clf_name]
+        self._scores = {'accuracy': [], 'f1': []}
 
-
-    def set_model(self,model_name):
-        self.model= {'RandomForest' : RandomForestClassifier(),
-                    'RBF_SVM' : SVC(gamma=2,C=1)}
-
-        self.clf_algo = self.model[model_name]
-
-
-    def sklearn_pipeline(self):
+    def sklearn_pipeline(self, clf):
         sklearn_pipeline = Pipeline(
             steps=[
                 ("tfidf", TfidfVectorizer()),
-                ("classifier", self.clf_algo),
+                ("classifier", clf),
             ]
         )
         return sklearn_pipeline
 
-    def evaluate(self,X_train,X_test,y_train,y_test,model_name):
-        self.set_model(model_name)
+    def fit(self, train_sentences, y_train):
+        self._model.fit(train_sentences, y_train)
 
-        if self.solver == 'sklearn' :
-            pipe = self.sklearn_pipeline()
-            pipe.fit(X_train,y_train)
-            self.y_pred = pipe.predict(X_test)
-            acc = accuracy_score(y_test,self.y_pred)
-            return acc
+    def predict(self, test_sentences):
+        return self._model.predict(test_sentences)
 
+    def accuracy(self, y_test, y_pred):
+        self._scores['accuracy'].append(accuracy_score(y_test, y_pred))
 
+    def f1(self, y_test, y_pred):
+        self._scores['f1'].append(f1_score(y_test, y_pred))
 
-#Model().evaluate(X_train, X_test, y_train, y_test,'RandomForest')
+    def evaluate(self, train_sentences, test_sentences, y_train, y_test):
+        self.fit(train_sentences, y_train)
+        y_pred = self.predict(test_sentences)
+        self.f1(y_test, y_pred)
+        self.accuracy(y_test, y_pred)
 
+    def get_scores(self):
+        return self._scores
 
