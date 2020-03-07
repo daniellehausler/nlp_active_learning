@@ -1,4 +1,5 @@
 from typing import Callable, Dict
+from utils import read_write_results
 
 import pandas as pd
 from active_learning import ActiveLearner
@@ -22,8 +23,10 @@ def run_experiment(
         train_y: np.array,
         test_y: np.array,
         n_iter: int,
-        sample_method: Callable
-) -> Dict:
+        sample_method: Callable,
+        dataset_name: str
+        ) -> Dict:
+
     for i in range(n_iter):
         sampled_index = active_learner.add_n_new_samples(
             sample_method=sample_method,
@@ -36,12 +39,14 @@ def run_experiment(
         embeddings_train = np.delete(embeddings_train, sampled_index, 0)
 
         model.evaluate(active_learner.get_raw_train_sent(), test_sent, active_learner.get_y_train(), test_y)
+        read_write_results(model.get_scores(),sample_method,dataset_name)
 
     return model.get_scores()
 
 
-DATA_SET = r'data_with_vectors\imdb_labelled.parquet'
-N_SAMPLE = 100
+DATA_SET = r'/Users/uri/nlp_active_learning/data_with_vectors/yelp_labelled.parquet'
+dataset_name = 'yelp'
+N_SAMPLE = 20
 TEST_SIZE = 0.2
 
 data = pd.read_parquet(DATA_SET)
@@ -77,4 +82,6 @@ scores = run_experiment(
         train_y=y_train,
         test_y=y_test,
         n_iter=N_ITER,
-        sample_method=cosine_distance_mean)
+        sample_method=cosine_distance_mean,
+        dataset_name = dataset_name)
+print(scores)

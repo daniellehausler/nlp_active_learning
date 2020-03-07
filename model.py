@@ -26,7 +26,8 @@ class Model:
             'RBF_SVM': self.sklearn_pipeline(RandomForestClassifier(SVC(gamma=2, C=1))),
         }
         self._model = self._clf[clf_name]
-        self._scores = {'accuracy': [], 'f1': []}
+        self._scores = {'accuracy': [],
+                        'f1': [],'n_samples':[]}
 
     def sklearn_pipeline(self, clf):
         sklearn_pipeline = Pipeline(
@@ -49,11 +50,17 @@ class Model:
     def f1(self, y_test, y_pred):
         self._scores['f1'].append(f1_score(y_test, y_pred))
 
+    def count_samples(self,x_train):
+        self._scores['n_samples'].append(len(x_train))
+
+
     def evaluate(self, train_sentences, test_sentences, y_train, y_test):
         self.fit(train_sentences, y_train)
         y_pred = self.predict(test_sentences)
+        self.count_samples(train_sentences)
         self.f1(y_test, y_pred)
         self.accuracy(y_test, y_pred)
+
 
     def get_scores(self):
         return self._scores

@@ -39,3 +39,7 @@ def cosine_distance_sum(x, train_sentences, n_sample):
     ind = np.argpartition(-sum_distance_over_train_samples, n_sample)[:n_sample]
 
     return ind
+
+def random_sample(x,train_sentences,n_samples):
+    ind = np.random.choice(len(x),n_samples)
+    return ind
