@@ -1,6 +1,6 @@
 from typing import Callable, Dict
 from utils import read_write_results
-
+from copy import deepcopy
 import pandas as pd
 from active_learning import ActiveLearner
 from sample_methods import *
@@ -26,7 +26,7 @@ def run_experiment(
         sample_method: Callable,
         dataset_name: str
         ) -> Dict:
-
+    model=model
     for i in range(n_iter):
         sampled_index = active_learner.add_n_new_samples(
             sample_method=sample_method,
@@ -58,13 +58,14 @@ def run_multiple_experiments(
 
 
     for experiment in sample_method_list:
+
         run_experiment(active_learner,
-                       model,
-                       embeddings_train,
-                       train_sent,
-                       test_sent,
-                       train_y,
-                       test_y,
+                       deepcopy(model),
+                       np.copy(embeddings_train),
+                       np.copy(train_sent),
+                       np.copy(test_sent),
+                       np.copy(train_y),
+                       np.copy(test_y),
                        n_iter,
                        experiment,
                        dataset_name)

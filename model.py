@@ -39,7 +39,7 @@ class Model:
         return sklearn_pipeline
 
     def fit(self, train_sentences, y_train):
-        self._model.fit(train_sentences, y_train)
+        self._model.fit(train_sentences, y_train.ravel())
 
     def predict(self, test_sentences):
         return self._model.predict(test_sentences)
