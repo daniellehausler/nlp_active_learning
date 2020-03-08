@@ -43,6 +43,34 @@ def run_experiment(
 
     return model.get_scores()
 
+def run_multiple_experiments(
+        active_learner: ActiveLearner,
+        model: Model,
+        embeddings_train: np.array,
+        train_sent: np.array,
+        test_sent: np.array,
+        train_y: np.array,
+        test_y: np.array,
+        n_iter: int,
+        sample_method_list: list,
+        dataset_name: str
+        ) -> Dict:
+
+
+    for experiment in sample_method_list:
+        run_experiment(active_learner,
+                       model,
+                       embeddings_train,
+                       train_sent,
+                       test_sent,
+                       train_y,
+                       test_y,
+                       n_iter,
+                       experiment,
+                       dataset_name)
+    return print('Done')
+
+
 
 DATA_SET = r'/Users/uri/nlp_active_learning/data_with_vectors/yelp_labelled.parquet'
 dataset_name = 'yelp'
@@ -70,10 +98,11 @@ m = Model('RandomForest')
 
 N_ITER = int((len(embeddings) * (1 - TEST_SIZE)) // N_SAMPLE)
 
+experiment_list = [random_sample,mdr,cosine_distance_mean]
 
 # run experiment:
 
-scores = run_experiment(
+run_multiple_experiments(
         active_learner=learner,
         model=m,
         embeddings_train=X_train,
@@ -82,5 +111,5 @@ scores = run_experiment(
         train_y=y_train,
         test_y=y_test,
         n_iter=N_ITER,
-        sample_method=mdr,
+        sample_method_list=experiment_list,
         dataset_name = dataset_name)
