@@ -82,6 +82,5 @@ scores = run_experiment(
         train_y=y_train,
         test_y=y_test,
         n_iter=N_ITER,
-        sample_method=cosine_distance_mean,
+        sample_method=mdr,
         dataset_name = dataset_name)
-print(scores)
