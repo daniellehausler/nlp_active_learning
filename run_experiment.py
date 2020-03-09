@@ -1,5 +1,5 @@
 from typing import Callable, Dict
-from utils import read_write_results
+from utils import read_write_results,plot_sample_method
 from copy import deepcopy
 import pandas as pd
 from active_learning import ActiveLearner
@@ -58,8 +58,7 @@ def run_multiple_experiments(
 
 
     for experiment in sample_method_list:
-
-        run_experiment(active_learner,
+        run_experiment(deepcopy(active_learner),
                        deepcopy(model),
                        np.copy(embeddings_train),
                        np.copy(train_sent),
@@ -73,8 +72,8 @@ def run_multiple_experiments(
 
 
 
-DATA_SET = r'/Users/uri/nlp_active_learning/data_with_vectors/yelp_labelled.parquet'
-dataset_name = 'yelp'
+DATA_SET = r'/Users/uri/nlp_active_learning/data_with_vectors/amazon_cells_labelled.parquet'
+dataset_name = 'amazon'
 N_SAMPLE = 20
 TEST_SIZE = 0.2
 
@@ -114,3 +113,5 @@ run_multiple_experiments(
         n_iter=N_ITER,
         sample_method_list=experiment_list,
         dataset_name = dataset_name)
+
+plot_sample_method('amazon','f1')
