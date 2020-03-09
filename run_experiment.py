@@ -26,7 +26,7 @@ def run_experiment(
         sample_method: Callable,
         dataset_name: str
         ) -> Dict:
-    model=model
+
     for i in range(n_iter):
         sampled_index = active_learner.add_n_new_samples(
             sample_method=sample_method,
@@ -39,9 +39,10 @@ def run_experiment(
         embeddings_train = np.delete(embeddings_train, sampled_index, 0)
 
         model.evaluate(active_learner.get_raw_train_sent(), test_sent, active_learner.get_y_train(), test_y)
-        read_write_results(model.get_scores(),sample_method,dataset_name)
+        read_write_results(model.get_scores(), sample_method, dataset_name)
 
     return model.get_scores()
+
 
 def run_multiple_experiments(
         active_learner: ActiveLearner,
@@ -54,8 +55,7 @@ def run_multiple_experiments(
         n_iter: int,
         sample_method_list: list,
         dataset_name: str
-        ) -> Dict:
-
+        ):
 
     for experiment in sample_method_list:
         run_experiment(deepcopy(active_learner),
@@ -71,8 +71,7 @@ def run_multiple_experiments(
     return print('Done')
 
 
-
-DATA_SET = r'/Users/uri/nlp_active_learning/data_with_vectors/amazon_cells_labelled.parquet'
+DATA_SET = r'data_with_vectors/amazon_cells_labelled.parquet'
 dataset_name = 'amazon'
 N_SAMPLE = 20
 TEST_SIZE = 0.2
@@ -98,7 +97,7 @@ m = Model('RandomForest')
 
 N_ITER = int((len(embeddings) * (1 - TEST_SIZE)) // N_SAMPLE)
 
-experiment_list = [random_sample,mdr,cosine_distance_mean]
+experiment_list = [random_sample, mdr, cosine_distance_mean,  rank_mdr, representative_max, diversity_max]
 
 # run experiment:
 
@@ -112,6 +111,6 @@ run_multiple_experiments(
         test_y=y_test,
         n_iter=N_ITER,
         sample_method_list=experiment_list,
-        dataset_name = dataset_name)
+        dataset_name=dataset_name)
 
-plot_sample_method('amazon','f1')
+plot_sample_method('amazon', 'f1')

@@ -1,15 +1,8 @@
-from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import BernoulliNB
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.metrics import classification_report
 from sklearn.svm import SVC
-import pandas as pd
-
-df = pd.read_parquet('data_with_vectors/yelp_labelled.parquet')
 
 
 class Model:
@@ -29,7 +22,8 @@ class Model:
         self._scores = {'accuracy': [],
                         'f1': [],'n_samples':[]}
 
-    def sklearn_pipeline(self, clf):
+    @staticmethod
+    def sklearn_pipeline(clf):
         sklearn_pipeline = Pipeline(
             steps=[
                 ("tfidf", TfidfVectorizer()),
@@ -44,15 +38,20 @@ class Model:
     def predict(self, test_sentences):
         return self._model.predict(test_sentences)
 
+    def proba(self, test_sentences):
+        return self._model.predict_proba(test_sentences)
+
+    def log_proba(self, test_sentences):
+        return self._model.predict_log_proba(test_sentences)
+
     def accuracy(self, y_test, y_pred):
         self._scores['accuracy'].append(accuracy_score(y_test, y_pred))
 
     def f1(self, y_test, y_pred):
         self._scores['f1'].append(f1_score(y_test, y_pred))
 
-    def count_samples(self,x_train):
+    def count_samples(self, x_train):
         self._scores['n_samples'].append(len(x_train))
-
 
     def evaluate(self, train_sentences, test_sentences, y_train, y_test):
         self.fit(train_sentences, y_train)
@@ -60,7 +59,6 @@ class Model:
         self.count_samples(train_sentences)
         self.f1(y_test, y_pred)
         self.accuracy(y_test, y_pred)
-
 
     def get_scores(self):
         return self._scores

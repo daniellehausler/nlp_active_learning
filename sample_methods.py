@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from scipy.stats import rankdata
 
 
 def group_cosine_distance_mean(x, n_sample):
@@ -10,7 +11,6 @@ def group_cosine_distance_mean(x, n_sample):
 
 
 def cosine_distance_mean(x, train_sentences, n_sample):
-
     if len(x) > 2 * n_sample:
         x_ind = group_cosine_distance_mean(x, n_sample)
         x = x[x_ind]
@@ -28,13 +28,16 @@ def group_cosine_distance_sum(x, n_sample):
     ind = np.argpartition(-sum_distance_over_group, n_sample * 2)[:n_sample * 2]
     return ind
 
+
 def representative(x):
     mean_sim_vector = np.mean(cosine_similarity(x, x), axis=1)
     return mean_sim_vector
 
+
 def diversity(x, train_sentences):
-    mean_diverse_vector = np.mean(1-cosine_similarity(x, train_sentences),axis=1)
+    mean_diverse_vector = np.mean(1 - cosine_similarity(x, train_sentences), axis=1)
     return mean_diverse_vector
+
 
 def mdr(x, train_sentences, n_sample):
     mdr_vector = diversity(x, train_sentences) * representative(x)
@@ -42,6 +45,22 @@ def mdr(x, train_sentences, n_sample):
     return ind
 
 
+def rank_mdr(x, train_sentences, n_sample):
+    mdr_vector = (rankdata(-diversity(x, train_sentences)) + rankdata(-representative(x))) / 2
+    ind = np.argpartition(mdr_vector, n_sample)[:n_sample]
+    return ind
+
+
+def representative_max(x, train_sentences, n_sample):
+    representative_vector = representative(x)
+    ind = np.argpartition(-representative_vector, n_sample)[:n_sample]
+    return ind
+
+
+def diversity_max(x, train_sentences, n_sample):
+    diversity_vector = diversity(x, train_sentences)
+    ind = np.argpartition(-diversity_vector, n_sample)[:n_sample]
+    return ind
 
 
 def cosine_distance_sum(x, train_sentences, n_sample):
@@ -55,6 +74,7 @@ def cosine_distance_sum(x, train_sentences, n_sample):
 
     return ind
 
-def random_sample(x,train_sentences,n_samples):
-    ind = np.random.choice(len(x),n_samples)
+
+def random_sample(x, train_sentences, n_samples):
+    ind = np.random.choice(len(x), n_samples)
     return ind
