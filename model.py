@@ -39,7 +39,7 @@ class Model:
         return sklearn_pipeline
 
     def fit(self, train_sentences, y_train):
-        self._model.fit(train_sentences, y_train.ravel())
+        self._model.fit(train_sentences.ravel(), y_train.ravel())
 
     def predict(self, test_sentences):
         return self._model.predict(test_sentences)
@@ -71,7 +71,7 @@ class Model:
 
 
 class LSTMClassifier(nn.Module):
-    def __init__(self, vocab_size, label_size, batch_size, pretrained_embeddings=None, embedding_dim=300, hidden_dim=300):
+    def __init__(self, vocab_size=0, label_size=0, batch_size=0, pretrained_embeddings=None, embedding_dim=300, hidden_dim=300):
         super(LSTMClassifier, self).__init__()
         self._hidden_dim = hidden_dim
         self._batch_size = batch_size
