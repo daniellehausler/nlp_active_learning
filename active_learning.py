@@ -1,6 +1,5 @@
 from typing import Callable
 import numpy as np
-from sklearn.metrics import f1_score, accuracy_score
 from sample_methods import cosine_distance_mean, group_cosine_distance_mean
 
 
@@ -9,11 +8,9 @@ class ActiveLearner:
     use example:
     >>> learner = ActiveLearner(initialization_method=group_cosine_distance_mean, n_samples=100)
     >>> sampled_index = learner.add_n_new_samples(x, y , sample_method=cosine_distance_mean)
-    >>> learner.fit_model()
     """
 
     def __init__(self, n_samples, initialization_method):
-
         self._initialization_method = initialization_method
         self._n_samples = n_samples
         self._train_sentences = None
@@ -27,12 +24,10 @@ class ActiveLearner:
         :param x: embedded sentences
         :param y: labels
         """
-
         ind = self._initialization_method(x, n_sample)
         self._train_sentences = x[ind]
         self._train_labels = y[ind]
         self._raw_sentences = raw_sentences[ind]
-
         return ind
 
     def add_n_new_samples(
@@ -43,7 +38,6 @@ class ActiveLearner:
             raw_sentences: np.array,
             *sampling_args
     ):
-
         """
         :param raw_sentences: array of strings
         :param sample_method: strategy of sampling new sentences from x
@@ -51,19 +45,15 @@ class ActiveLearner:
         :param x: embedded sentences
         :param y: labels
         """
-
         assert len(x) == len(y), "len of sentences doesn't match len of labels"
         assert len(x) >= self._n_samples, "there are not enough samples to add"
-
         if self._train_sentences is None:
             ind = self.initialize_learner(x, y, raw_sentences, n_sample=int(self._n_samples / 2))
-
         else:
             ind = sample_method(x, self._train_sentences, int(self._n_samples), *sampling_args)
             self._train_sentences = np.vstack((self._train_sentences, x[ind]))
             self._train_labels = np.vstack((self._train_labels, y[ind]))
-            self._raw_sentences = np.hstack((self._raw_sentences, raw_sentences[ind]))
-
+            self._raw_sentences = np.vstack((self._raw_sentences, raw_sentences[ind]))
         return ind
 
     def get_raw_train_sent(self):
@@ -71,12 +61,3 @@ class ActiveLearner:
 
     def get_y_train(self):
         return self._train_labels
-
-
-
-
-
-
-
-
-
