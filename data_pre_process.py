@@ -71,7 +71,7 @@ class ProcessDataset(Dataset):
 def pad_features(sent, seq_length=135):
     feature = sent
     if len(sent) < seq_length:
-        feature = np.pad(sent, [0, seq_length - len(sent)], mode='constant')
+        feature = np.pad(sent, [seq_length - len(sent), 0], mode='constant')
     if len(sent) > seq_length:
         feature = sent[0:seq_length]
     return feature

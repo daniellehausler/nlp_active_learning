@@ -63,7 +63,7 @@ class Model:
         self.fit(train_sentences, y_train)
         y_pred = self.predict(test_sentences)
         self.count_samples(train_sentences)
-        self.f1(y_test, y_pred)
+        self.f1(y_test.reshape(len(y_test),), y_pred)
         self.accuracy(y_test, y_pred)
 
     def get_scores(self):
@@ -71,11 +71,14 @@ class Model:
 
 
 class LSTMClassifier(nn.Module):
-    def __init__(self, vocab_size, label_size, batch_size, embedding_dim=300, hidden_dim=300):
+    def __init__(self, vocab_size, label_size, batch_size, pretrained_embeddings=None, embedding_dim=300, hidden_dim=300):
         super(LSTMClassifier, self).__init__()
         self._hidden_dim = hidden_dim
         self._batch_size = batch_size
-        self._word_embeddings = nn.Embedding(vocab_size, embedding_dim)
+        if pretrained_embeddings is not None:
+            self._word_embeddings = nn.Embedding(vocab_size, embedding_dim).from_pretrained(pretrained_embeddings, freeze=False, padding_idx=0)
+        else:
+            self._word_embeddings = nn.Embedding(vocab_size, embedding_dim)
         self._lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
         self._hidden2label = nn.Linear(hidden_dim, label_size)
         self._hidden = self.init_hidden()
@@ -86,11 +89,11 @@ class LSTMClassifier(nn.Module):
         c0 = torch.zeros(1, self._batch_size, self._hidden_dim).zero_().to(device)
         return (h0, c0)
 
-    def forward(self, sentence):
-        embeddings = self._word_embeddings(sentence)
+    def forward(self, sentences):
+        embeddings = self._word_embeddings(sentences)
         lstm_out, self._hidden = self._lstm(embeddings, self._hidden)
-        y = self._hidden2label(lstm_out.reshape(-1, len(sentence), embeddings.shape[2])[-1])
-        log_probs = F.log_softmax(y, dim=0)
+        y = self._hidden2label(lstm_out.reshape(-1, len(sentences), embeddings.shape[2])[-1])
+        log_probs = F.log_softmax(y, dim=1)
         return log_probs
 
 
@@ -143,3 +146,23 @@ class LSTM:
             label_probs = self._model(inputs[0])
             y_pred = y_pred + [torch.argmax(prob) for prob in label_probs]
         return torch.IntTensor(y_pred)
+
+    def predict_proba(self, test_sentences):
+        y_pred = []
+        self._model.eval()
+        test_data = TensorDataset(torch.LongTensor(test_sentences))
+        test_loader = DataLoader(test_data, batch_size=self._batch_size, shuffle=True)
+        for inputs in test_loader:
+            log_probs = self._model(inputs[0])
+            y_pred.append(torch.exp(log_probs))
+        return y_pred
+
+    def predict_log_proba(self, test_sentences):
+        y_pred = []
+        self._model.eval()
+        test_data = TensorDataset(torch.LongTensor(test_sentences))
+        test_loader = DataLoader(test_data, batch_size=self._batch_size, shuffle=True)
+        for inputs in test_loader:
+            log_probs = self._model(inputs[0])
+            y_pred.append(log_probs)
+        return y_pred
