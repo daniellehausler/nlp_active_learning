@@ -71,8 +71,8 @@ def run_multiple_experiments(
     return print('Done')
 
 
-DATA_SET = r'data_with_vectors/amazon_cells_labelled.parquet'
-dataset_name = 'amazon'
+DATA_SET = r'data_with_vectors/yelp_labelled_bert_avg.parquet'
+dataset_name = 'yelp_bert_avg'
 N_SAMPLE = 20
 TEST_SIZE = 0.2
 
@@ -97,7 +97,7 @@ m = Model('RandomForest')
 
 N_ITER = int((len(embeddings) * (1 - TEST_SIZE)) // N_SAMPLE)
 
-experiment_list = [random_sample, mdr, cosine_distance_mean,  rank_mdr, representative_max, diversity_max]
+experiment_list = [random_sample, mdr]
 
 # run experiment:
 
@@ -113,4 +113,4 @@ run_multiple_experiments(
         sample_method_list=experiment_list,
         dataset_name=dataset_name)
 
-plot_sample_method('amazon', 'f1')
+plot_sample_method(dataset_name, 'f1')
