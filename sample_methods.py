@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.stats import rankdata
+from model import Model
 
 
 def group_cosine_distance_mean(x, n_sample):
@@ -72,6 +73,20 @@ def cosine_distance_sum(x, train_sentences, n_sample):
     sum_distance_over_train_samples = np.sum(distance, axis=1)
     ind = np.argpartition(-sum_distance_over_train_samples, n_sample)[:n_sample]
 
+    return ind
+
+
+def least_confidence(train_sentences, raw_x, raw_y):
+    m = Model('RandomForest')
+    m.fit(raw_x, raw_y)
+    probs = m.proba(train_sentences)
+    return 1 - np.nanmax(probs, axis=1)
+
+
+def information_density(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    information_dense_vector = representative(x) * \
+                               least_confidence(raw_sent, raw_x, raw_y)
+    ind = np.argpartition(-information_dense_vector, n_sample)[:n_sample]
     return ind
 
 

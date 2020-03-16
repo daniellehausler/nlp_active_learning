@@ -1,6 +1,6 @@
 from typing import Callable
 import numpy as np
-from sample_methods import cosine_distance_mean, group_cosine_distance_mean
+from sample_methods import cosine_distance_mean, group_cosine_distance_mean, information_density
 
 
 class ActiveLearner:
@@ -36,7 +36,7 @@ class ActiveLearner:
             x: np.array,
             y: np.array,
             raw_sentences: np.array,
-            *sampling_args
+            **sampling_args
     ):
         """
         :param raw_sentences: array of strings
@@ -50,7 +50,7 @@ class ActiveLearner:
         if self._train_sentences is None:
             ind = self.initialize_learner(x, y, raw_sentences, n_sample=int(self._n_samples / 2))
         else:
-            ind = sample_method(x, self._train_sentences, int(self._n_samples), *sampling_args)
+            ind = sample_method(x, self._train_sentences, int(self._n_samples), **sampling_args)
             self._train_sentences = np.vstack((self._train_sentences, x[ind]))
             self._train_labels = np.vstack((self._train_labels, y[ind]))
             self._raw_sentences = np.vstack((self._raw_sentences, raw_sentences[ind]))

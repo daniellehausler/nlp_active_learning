@@ -30,15 +30,23 @@ def run_experiment(
         ) -> Dict:
 
     for i in range(n_iter):
+
+        sampling_args = {}
+        if sample_method == information_density:
+            sampling_args = {'raw_sent': train_sent,
+                             'raw_x': active_learner.get_raw_train_sent(),
+                             'raw_y': active_learner.get_y_train()}
         sampled_index = active_learner.add_n_new_samples(
-            sample_method=sample_method,
-            x=embeddings_train,
-            y=train_y,
-            raw_sentences=train_sent)
+            sample_method,
+            embeddings_train,
+            train_y,
+            train_sent,
+            **sampling_args
+        )
         train_sent = np.delete(train_sent, sampled_index, 0)
         train_y = np.delete(train_y, sampled_index, 0)
         embeddings_train = np.delete(embeddings_train, sampled_index, 0)
-        model.evaluate(active_learner.get_raw_train_sent(), test_sent, active_learner.get_y_train(), test_y)
+        model.evaluate(active_learner.get_raw_train_sent().ravel(), test_sent, active_learner.get_y_train().ravel(), test_y)
         read_write_results(model.get_scores(), sample_method, dataset_name)
     return model.get_scores()
 
@@ -71,16 +79,11 @@ def run_multiple_experiments(
 
 DATA_SET = r'data_with_vectors/amazon_cells_labelled.parquet'
 dataset_name = 'amazon'
-N_SAMPLE = 100
+N_SAMPLE = 20
 TEST_SIZE = 0.2
-BATCH_SIZE = 100
+BATCH_SIZE = 20
 LSTM = False
-
-
 data = pd.read_parquet(DATA_SET)
-processed_data = ProcessDataset(data, max_vocab_size=len(data))
-words_counter = processed_data.build_counter()
-vocab, index_to_vocab = processed_data.build_vocab(words_counter=words_counter, max_vocab_size=len(data))
 embeddings = np.array([np.array(sent.tolist()) for sent in data.embedded.tolist()])
 labels = np.array([np.array([label]) for label in data.Label.values])
 sentences = np.array([sent for sent in data.sentence.tolist()])
@@ -89,6 +92,9 @@ X_train, X_test, y_train, y_test, train_indices, test_indices = train_test_split
                                                                                  test_size=TEST_SIZE)
 # sentences = np.array([pad_features(processed_data.vectorize(sent, vocab)) for sent in data.sentence.tolist()])
 if LSTM:
+    processed_data = ProcessDataset(data, max_vocab_size=len(data))
+    words_counter = processed_data.build_counter()
+    vocab, index_to_vocab = processed_data.build_vocab(words_counter=words_counter, max_vocab_size=len(data))
     sentences = np.array([pad_features(processed_data.__getitem__(i)[0]) for i in range(len(data))])
     pretrained_embedding = GloVe(name='6B', dim=300, is_include=lambda w: w in vocab.keys())
     embedding_weights = torch.Tensor(len(vocab.keys()), pretrained_embedding.dim)
@@ -112,7 +118,7 @@ learner = ActiveLearner(
 m = Model('RandomForest')
 N_ITER = int((len(embeddings) * (1 - TEST_SIZE)) // N_SAMPLE)
 
-experiment_list = [random_sample, mdr]
+experiment_list = [random_sample, information_density]
 
 # run experiment:
 run_multiple_experiments(
