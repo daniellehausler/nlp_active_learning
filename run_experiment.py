@@ -100,6 +100,8 @@ def run_experiments_with_cross_validation(
 ):
     kf = KFold(n_splits=kf_splits, shuffle=True)
 
+    n_iter = ((len(data) // kf_splits) * (kf_splits-1)) // n_sample
+
     results = []
 
     for (k, (train_index, test_index)), config in product(enumerate(kf.split(data)), experiments_configs):
@@ -115,8 +117,6 @@ def run_experiments_with_cross_validation(
             initialization_method=initialization_method,
             n_samples=n_sample
         )
-
-        n_iter = int(len(train_index) // n_sample)
 
         res = run_experiment(deepcopy(learner),
                              deepcopy(model),
