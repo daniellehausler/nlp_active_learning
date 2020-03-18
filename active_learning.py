@@ -1,6 +1,6 @@
 from typing import Callable
 import numpy as np
-from sample_methods import cosine_distance_mean, group_cosine_distance_mean, information_density
+from sample_methods import *
 
 
 class ActiveLearner:
@@ -48,7 +48,7 @@ class ActiveLearner:
         assert len(x) == len(y), "len of sentences doesn't match len of labels"
         assert len(x) >= self._n_samples, "there are not enough samples to add"
         if self._train_sentences is None:
-            ind = self.initialize_learner(x, y, raw_sentences, n_sample=int(self._n_samples / 2))
+            ind = self.initialize_learner(x, y, raw_sentences, n_sample=int(self._n_samples))
         else:
             ind = sample_method(x, self._train_sentences, int(self._n_samples), **sampling_args)
             self._train_sentences = np.vstack((self._train_sentences, x[ind]))

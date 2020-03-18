@@ -2,20 +2,17 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.stats import rankdata
 from model import Model
+import nmslib
 
 
 def group_cosine_distance_mean(x, n_sample):
     distance = 1 - cosine_similarity(x, x)
     mean_distance_over_group = np.mean(distance, axis=1)
-    ind = np.argpartition(-mean_distance_over_group, n_sample * 2)[:n_sample * 2]
+    ind = np.argpartition(-mean_distance_over_group, n_sample)[:n_sample]
     return ind
 
 
 def cosine_distance_mean(x, train_sentences, n_sample):
-    if len(x) > 2 * n_sample:
-        x_ind = group_cosine_distance_mean(x, n_sample)
-        x = x[x_ind]
-
     distance = 1 - cosine_similarity(x, train_sentences)
     mean_distance_over_train_samples = np.mean(distance, axis=1)
     ind = np.argpartition(-mean_distance_over_train_samples, n_sample)[:n_sample]
@@ -26,7 +23,7 @@ def cosine_distance_mean(x, train_sentences, n_sample):
 def group_cosine_distance_sum(x, n_sample):
     distance = 1 - cosine_similarity(x, x)
     sum_distance_over_group = np.sum(distance, axis=1)
-    ind = np.argpartition(-sum_distance_over_group, n_sample * 2)[:n_sample * 2]
+    ind = np.argpartition(-sum_distance_over_group, n_sample)[:n_sample]
     return ind
 
 
@@ -65,14 +62,9 @@ def diversity_max(x, train_sentences, n_sample):
 
 
 def cosine_distance_sum(x, train_sentences, n_sample):
-    if len(x) > 2 * n_sample:
-        x_ind = group_cosine_distance_sum(x, n_sample)
-        x = x[x_ind]
-
     distance = 1 - cosine_similarity(x, train_sentences)
     sum_distance_over_train_samples = np.sum(distance, axis=1)
     ind = np.argpartition(-sum_distance_over_train_samples, n_sample)[:n_sample]
-
     return ind
 
 
@@ -83,13 +75,28 @@ def least_confidence(train_sentences, raw_x, raw_y):
     return 1 - np.nanmax(probs, axis=1)
 
 
-def information_density(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    information_dense_vector = representative(x) * \
+def lc_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    represent_lc_vector = representative(x) * \
                                least_confidence(raw_sent, raw_x, raw_y)
-    ind = np.argpartition(-information_dense_vector, n_sample)[:n_sample]
+    ind = np.argpartition(-represent_lc_vector, n_sample)[:n_sample]
     return ind
 
 
 def random_sample(x, train_sentences, n_samples):
     ind = np.random.choice(len(x), n_samples)
     return ind
+
+
+def random(x, n_samples):
+    ind = np.random.choice(len(x), n_samples)
+    return ind
+
+
+def knn_representative(x):
+    index = nmslib.init(method='hnsw', space='cosinesimil')
+    index.addDataPointBatch(x)
+    index.createIndex({'post': 2}, print_progress=True)
+    neighbours = index.knnQueryBatch(x, k=len(x), num_threads=4)
+    return neighbours
+
+

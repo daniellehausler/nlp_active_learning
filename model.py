@@ -39,7 +39,7 @@ class Model:
         return sklearn_pipeline
 
     def fit(self, train_sentences, y_train):
-        self._model.fit(train_sentences.ravel(), y_train.ravel())
+        self._model.fit(train_sentences, y_train)
 
     def predict(self, test_sentences):
         return self._model.predict(test_sentences)
@@ -112,6 +112,11 @@ class LSTM:
 
     def train(self, sentences, labels):
         model = self._model
+
+        if self._model._batch_size != len(sentences):
+            self._model._batch_size = len(sentences)
+            self._model._hidden = self._model.init_hidden()
+
         label_probs = model(sentences)
         model.zero_grad()
         self._model._hidden = self._model.init_hidden()
@@ -143,6 +148,10 @@ class LSTM:
         test_data = TensorDataset(torch.LongTensor(test_sentences))
         test_loader = DataLoader(test_data, batch_size=self._batch_size, shuffle=True)
         for inputs in test_loader:
+            if self._model._batch_size != len(inputs[0]):
+                self._model._batch_size = len(inputs[0])
+                self._model._hidden = self._model.init_hidden()
+
             label_probs = self._model(inputs[0])
             y_pred = y_pred + [torch.argmax(prob) for prob in label_probs]
         return torch.IntTensor(y_pred)

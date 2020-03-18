@@ -5,6 +5,7 @@ from tqdm.auto import tqdm
 import torch
 from torch.utils.data import Dataset
 import numpy as np
+from torchnlp.word_to_vector import GloVe
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 PAD = 0
@@ -35,10 +36,10 @@ class ProcessDataset(Dataset):
         return self._df.shape[0]
 
     def __getitem__(self, idx):
-        sent = self._df.sentence[idx]
+        sent = self._df.sentence.iloc[idx]
         tokens = [w.text.lower() for w in self._nlp(self.process(sent))]
         vec = self.vectorize(tokens, self._word2idx)
-        return vec, self._df.Label[idx]
+        return vec, self._df.Label.iloc[idx]
 
     @staticmethod
     def process(text):
@@ -75,3 +76,15 @@ def pad_features(sent, seq_length=135):
     if len(sent) > seq_length:
         feature = sent[0:seq_length]
     return feature
+
+
+def get_lstm_parsed_sentences_and_embeddings(data):
+    processed_data = ProcessDataset(data, max_vocab_size=len(data))
+    words_counter = processed_data.build_counter()
+    vocab, index_to_vocab = processed_data.build_vocab(words_counter=words_counter, max_vocab_size=len(data))
+    sentences = np.array([pad_features(processed_data.__getitem__(i)[0]) for i in range(len(data))])
+    pretrained_embedding = GloVe(name='6B', dim=300, is_include=lambda w: w in vocab.keys())
+    embedding_weights = torch.Tensor(len(vocab.keys()), pretrained_embedding.dim)
+    for num, word in index_to_vocab.items():
+        embedding_weights[num] = pretrained_embedding[index_to_vocab[num]]
+    return sentences, embedding_weights
