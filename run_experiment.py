@@ -32,7 +32,8 @@ def run_experiment(
     for i in range(n_iter):
 
         sampling_args = {}
-        if sample_method == lc_representative:
+
+        if sample_method in [lc_representative, entropy_representative]:
             sampling_args = {'raw_sent': train_sent,
                              'raw_x': raw_x,
                              'raw_y': raw_y}
@@ -47,9 +48,7 @@ def run_experiment(
 
         raw_x = active_learner.get_raw_train_sent().ravel()
         raw_y = active_learner.get_y_train().ravel()
-        train_sent = np.delete(train_sent, sampled_index, 0)
-        train_y = np.delete(train_y, sampled_index, 0)
-        embeddings_train = np.delete(embeddings_train, sampled_index, 0)
+        train_sent, train_y, embeddings_train = remove_used_index(sampled_index, train_sent, train_y, embeddings_train)
 
         model.evaluate(raw_x, test_sent, raw_y, test_y)
         print(f'iter_{i}_out_of_{n_iter}')
@@ -57,6 +56,18 @@ def run_experiment(
         print(model.get_scores()['accuracy'][-1])
 
     return model.get_scores()
+
+
+def remove_used_index(
+        sampled_index: np.array,
+        train_sent: np.array,
+        train_y: np.array,
+        embeddings_train: np.array
+):
+    train_sent = np.delete(train_sent, sampled_index, 0)
+    train_y = np.delete(train_y, sampled_index, 0)
+    embeddings_train = np.delete(embeddings_train, sampled_index, 0)
+    return train_sent, train_y, embeddings_train
 
 
 def run_multiple_experiments(
@@ -131,6 +142,7 @@ def run_experiments_with_cross_validation(
 
         res['k_fold'] = [k] * n_iter
         res['sample_method'] = [config['sample_method'].__name__] * n_iter
+        res['representation'] = [config['representation']] * n_iter
         results.append(res)
 
     write_results(results, dataset_name)
@@ -139,7 +151,7 @@ def run_experiments_with_cross_validation(
 # DATA_SET = r'experiments_data/imdb.parquet'
 DATA_SET = r'data_with_vectors/amazon_cells_labelled.parquet'
 dataset_name = 'amazon'
-N_SAMPLE = 50
+N_SAMPLE = 20
 TEST_SIZE = 0.2
 BATCH_SIZE = 100
 LSTM = False
@@ -152,8 +164,10 @@ experiment_configs = [
     # {'representation': 'SentenceBert', 'sample_method': lc_representative},
     # {'representation': 'AvgBert', 'sample_method': random_sample},
     # {'representation': 'AvgBert', 'sample_method': lc_representative},
+    {'representation': 'embedded', 'sample_method': entropy_representative},
     {'representation': 'embedded', 'sample_method': random_sample},
-    {'representation': 'embedded', 'sample_method': lc_representative}
+    {'representation': 'embedded', 'sample_method': lc_representative},
+
 ]
 
 run_experiments_with_cross_validation(

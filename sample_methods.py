@@ -82,6 +82,21 @@ def lc_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
     return ind
 
 
+def entropy(train_sentences, raw_x, raw_y):
+    m = Model('RandomForest')
+    m.fit(raw_x, raw_y)
+    probs = m.proba(train_sentences)
+    probs_without_zero = np.where(probs == 0, 10**-10, probs)
+    log_probs = np.log(probs_without_zero)
+    return -np.sum(probs * log_probs, axis=1)
+
+
+def entropy_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    represent_entropy_vector = representative(x) * entropy(raw_sent, raw_x, raw_y)
+    ind = np.argpartition(-represent_entropy_vector, n_sample)[:n_sample]
+    return ind
+
+
 def random_sample(x, train_sentences, n_samples):
     ind = np.random.choice(len(x), n_samples)
     return ind
