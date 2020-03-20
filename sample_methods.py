@@ -5,7 +5,7 @@ from model import Model
 import nmslib
 
 
-def group_cosine_distance_mean(x, n_sample):
+def group_cosine_distance_mean(x, n_sample,*args):
     distance = 1 - cosine_similarity(x, x)
     mean_distance_over_group = np.mean(distance, axis=1)
     ind = np.argpartition(-mean_distance_over_group, n_sample)[:n_sample]
@@ -99,6 +99,11 @@ def entropy_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y)
 
 def random_sample(x, train_sentences, n_samples):
     ind = np.random.choice(len(x), n_samples)
+    return ind
+
+
+def random_sample_init(x,n_samples,random_init_sample):
+    ind = random_init_sample
     return ind
 
 

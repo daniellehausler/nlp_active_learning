@@ -24,6 +24,7 @@ def run_experiment(
         test_y: np.array,
         n_iter: int,
         sample_method: Callable,
+        random_init_sample,
         dataset_name: str
 ) -> Dict:
     raw_x = None
@@ -43,6 +44,7 @@ def run_experiment(
             embeddings_train,
             train_y,
             train_sent,
+            random_init_sample,
             **sampling_args
         )
 
@@ -105,7 +107,7 @@ def run_experiments_with_cross_validation(
         model: Model,
         n_sample: int,
         kf_splits: int = 5,
-        initialization_method: Callable = random,
+        initialization_method: Callable = random_sample_init,
         embedding_weights=None
 
 ):
@@ -114,6 +116,10 @@ def run_experiments_with_cross_validation(
     n_iter = ((len(data) // kf_splits) * (kf_splits-1)) // n_sample
 
     results = []
+    random_dic = list(range(0,kf_splits))
+    #np.random.randint(0, 1000, (5, 20))
+    random_samples_dic = dict()
+
 
     for (k, (train_index, test_index)), config in product(enumerate(kf.split(data)), experiments_configs):
         representations = np.array([np.array(sent.tolist()) for sent in data[config['representation']].tolist()])
@@ -124,6 +130,8 @@ def run_experiments_with_cross_validation(
         train_labels, test_labels = labels[train_index], labels[test_index]
         train_sentences, test_sentences = sentences[train_index], sentences[test_index]
 
+        random_samples_dic[k] = random_samples_dic.get(k,np.random.randint(len(train_index),size=n_sample)) #generate n_sample random indexes from train_index.
+        random_init_sample=random_samples_dic.get(k)
         learner = ActiveLearner(
             initialization_method=initialization_method,
             n_samples=n_sample
@@ -138,6 +146,7 @@ def run_experiments_with_cross_validation(
                              np.copy(test_labels),
                              n_iter,
                              config['sample_method'],
+                             random_init_sample,
                              dataset_name)
 
         res['k_fold'] = [k] * n_iter

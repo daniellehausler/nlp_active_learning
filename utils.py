@@ -1,5 +1,7 @@
 from pathlib import Path, PurePosixPath
 import pandas as pd
+import time
+
 
 
 def read_write_results(dic, sample_method, dataset_name):
@@ -16,7 +18,8 @@ def write_results(results_list, dataset_name):
     p = Path(PurePosixPath('results').joinpath(dataset_name))
     p.mkdir(parents=True, exist_ok=True)
     df = pd.concat([pd.DataFrame.from_dict(res) for res in results_list])
-    file_name = PurePosixPath(p).joinpath(dataset_name + '.csv')
+    timestamp = time.strftime("%d_%m_%Y_%H%M%S")
+    file_name = PurePosixPath(p).joinpath(dataset_name+ timestamp + '.csv')
     df.to_csv(file_name, index=False)
 
 
