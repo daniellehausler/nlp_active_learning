@@ -116,8 +116,6 @@ def run_experiments_with_cross_validation(
     n_iter = ((len(data) // kf_splits) * (kf_splits-1)) // n_sample
 
     results = []
-    random_dic = list(range(0,kf_splits))
-    #np.random.randint(0, 1000, (5, 20))
     random_samples_dic = dict()
 
 
