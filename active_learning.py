@@ -17,14 +17,14 @@ class ActiveLearner:
         self._train_labels = None
         self._raw_sentences = None
 
-    def initialize_learner(self, x: np.array, y: np.array, raw_sentences, n_sample: int) -> np.array:
+    def initialize_learner(self, x: np.array, y: np.array, raw_sentences,random_init_sample, n_sample: int) -> np.array:
         """
         :param raw_sentences: array of strings
         :param n_sample: number of samples for initialization the learner
         :param x: embedded sentences
         :param y: labels
         """
-        ind = self._initialization_method(x, n_sample)
+        ind = self._initialization_method(x, n_sample,random_init_sample)
         self._train_sentences = x[ind]
         self._train_labels = y[ind]
         self._raw_sentences = raw_sentences[ind]
@@ -36,6 +36,7 @@ class ActiveLearner:
             x: np.array,
             y: np.array,
             raw_sentences: np.array,
+            random_init_sample :np.array,
             **sampling_args
     ):
         """
@@ -48,7 +49,7 @@ class ActiveLearner:
         assert len(x) == len(y), "len of sentences doesn't match len of labels"
         assert len(x) >= self._n_samples, "there are not enough samples to add"
         if self._train_sentences is None:
-            ind = self.initialize_learner(x, y, raw_sentences, n_sample=int(self._n_samples))
+            ind = self.initialize_learner(x, y, raw_sentences,random_init_sample, n_sample=int(self._n_samples))
         else:
             ind = sample_method(x, self._train_sentences, int(self._n_samples), **sampling_args)
             self._train_sentences = np.vstack((self._train_sentences, x[ind]))
