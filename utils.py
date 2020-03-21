@@ -1,6 +1,8 @@
 from pathlib import Path, PurePosixPath
-import pandas as pd
 import time
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -46,3 +48,35 @@ def plot_sample_method(dataset_name, metric):
     plt.show()
 
     return
+
+
+
+
+def pivot_table_result_by_method(result_df,metric):
+    mean_by_k= pd.pivot_table(result_df,index=['sample_method','representation'],columns=['n_samples'],values=metric,aggfunc={metric: [np.mean]}).reset_index()
+    std_by_k= pd.pivot_table(result_df,index=['sample_method','representation'],columns=['n_samples'],values=metric,aggfunc={metric: [np.std]}).reset_index()
+    return mean_by_k , std_by_k
+
+
+def calculate_region_around_mean(mean_by_k,std_by_k):
+    mean_plus_std = mean_by_k['mean'] + std_by_k['std']
+    mean_minus_std = mean_by_k['mean'] - std_by_k['std']
+    return mean_minus_std,mean_plus_std
+
+def plot_curve_with_region(mean_by_k,mean_minus_std,mean_plus_std,metric):
+    for index,row in mean_by_k.iterrows():
+        x = row['mean'].index.values.astype(int)
+        y = row['mean'].values
+        plt.plot(x, y)
+        plt.fill_between(x,mean_minus_std.iloc[index].values,mean_plus_std.iloc[index].values,alpha=0.2)
+
+    plt.legend(mean_by_k['sample_method'].values)
+    plt.xlabel('samples')
+    plt.ylabel(metric)
+    plt.show()
+
+def pivot_and_plot(result_df,metric):
+    mean_by_k , std_by_k = pivot_table_result_by_method(result_df,'f1')
+    mean_minus_std,mean_plus_std = calculate_region_around_mean(mean_by_k , std_by_k)
+    plot_curve_with_region(mean_by_k,mean_minus_std,mean_plus_std,metric)
+    return mean_by_k
