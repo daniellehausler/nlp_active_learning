@@ -7,7 +7,7 @@ from active_learning import ActiveLearner
 from sample_methods import *
 from sklearn.model_selection import train_test_split, KFold
 from model import Model
-from data_pre_process import get_lstm_parsed_sentences_and_embeddings
+from sample_methods import ADDITION_SAMPLE_ARGS, EXPERIMENT_METHODS
 
 
 # TODO :
@@ -34,7 +34,7 @@ def run_experiment(
 
         sampling_args = {}
 
-        if sample_method in [lc_representative, entropy_representative]:
+        if sample_method in ADDITION_SAMPLE_ARGS:
             sampling_args = {'raw_sent': train_sent,
                              'raw_x': raw_x,
                              'raw_y': raw_y}
@@ -113,11 +113,11 @@ def run_experiments_with_cross_validation(
 ):
     kf = KFold(n_splits=kf_splits, shuffle=True)
 
-    n_iter = ((len(data) // kf_splits) * (kf_splits-1)) // n_sample
+    # n_iter = (((len(data) // kf_splits) * (kf_splits-1)) // n_sample) - 2
+    n_iter = 30
 
     results = []
     random_samples_dic = dict()
-
 
     for (k, (train_index, test_index)), config in product(enumerate(kf.split(data)), experiments_configs):
         representations = np.array([np.array(sent.tolist()) for sent in data[config['representation']].tolist()])
@@ -128,8 +128,8 @@ def run_experiments_with_cross_validation(
         train_labels, test_labels = labels[train_index], labels[test_index]
         train_sentences, test_sentences = sentences[train_index], sentences[test_index]
 
-        random_samples_dic[k] = random_samples_dic.get(k,np.random.randint(len(train_index),size=n_sample)) #generate n_sample random indexes from train_index.
-        random_init_sample=random_samples_dic.get(k)
+        random_samples_dic[k] = random_samples_dic.get(k, np.random.randint(len(train_index), size=n_sample)) #generate n_sample random indexes from train_index.
+        random_init_sample = random_samples_dic.get(k)
         learner = ActiveLearner(
             initialization_method=initialization_method,
             n_samples=n_sample
@@ -155,26 +155,21 @@ def run_experiments_with_cross_validation(
     write_results(results, dataset_name)
 
 
-# DATA_SET = r'experiments_data/imdb.parquet'
-DATA_SET = r'data_with_vectors/amazon_cells_labelled.parquet'
+DATA_SET = r'experiments_data/imdb.parquet'
+# DATA_SET = r'data_with_vectors/amazon_cells_labelled.parquet'
 dataset_name = 'amazon'
 N_SAMPLE = 20
 TEST_SIZE = 0.2
-BATCH_SIZE = 100
+BATCH_SIZE = 20
 LSTM = False
-data = pd.read_parquet(DATA_SET)
+data = pd.read_parquet(DATA_SET).sample(frac=0.05)
 
 m = Model('RandomForest')
 
 experiment_configs = [
-    # {'representation': 'SentenceBert', 'sample_method': random_sample},
-    # {'representation': 'SentenceBert', 'sample_method': lc_representative},
-    # {'representation': 'AvgBert', 'sample_method': random_sample},
-    # {'representation': 'AvgBert', 'sample_method': lc_representative},
-    {'representation': 'embedded', 'sample_method': entropy_representative},
-    {'representation': 'embedded', 'sample_method': random_sample},
-    {'representation': 'embedded', 'sample_method': lc_representative},
-
+    {'representation': 'SentenceBert', 'sample_method': sample_method} for sample_method in EXPERIMENT_METHODS
+] + [
+    {'representation': 'AvgBert', 'sample_method': sample_method} for sample_method in EXPERIMENT_METHODS
 ]
 
 run_experiments_with_cross_validation(
