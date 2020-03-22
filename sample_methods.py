@@ -1,6 +1,9 @@
 import numpy as np
+from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.stats import rankdata
+from sklearn.preprocessing import normalize
+
 from model import Model
 import nmslib
 
@@ -82,6 +85,12 @@ def lc_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
     return ind
 
 
+def lc_diversity(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    represent_lc_vector = diversity(x, train_sentences) * least_confidence(raw_sent, raw_x, raw_y)
+    ind = np.argpartition(-represent_lc_vector, n_sample)[:n_sample]
+    return ind
+
+
 def entropy(train_sentences, raw_x, raw_y):
     m = Model('RandomForest')
     m.fit(raw_x, raw_y)
@@ -97,12 +106,57 @@ def entropy_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y)
     return ind
 
 
+def entropy_diversity(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    represent_entropy_vector = diversity(x, train_sentences) * entropy(raw_sent, raw_x, raw_y)
+    ind = np.argpartition(-represent_entropy_vector, n_sample)[:n_sample]
+    return ind
+
+
+def margin_uncertainty(train_sentences, raw_x, raw_y):
+    m = Model('RandomForest')
+    m.fit(raw_x, raw_y)
+    probs = m.proba(train_sentences)
+    sorted_probs = np.sort(probs, axis=1)
+    difference = sorted_probs[:, -1] - sorted_probs[:, -2]
+    return 1 - difference
+
+
+def margin_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    represent_margin_vector = representative(x) * margin_uncertainty(raw_sent, raw_x, raw_y)
+    ind = np.argpartition(-represent_margin_vector, n_sample)[:n_sample]
+    return ind
+
+
+def margin_k_means(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    represent_margin_vector = k_means_min_dist_to_cluster_center(x, n_sample) * margin_uncertainty(raw_sent, raw_x, raw_y)
+    ind = np.argpartition(-represent_margin_vector, n_sample)[:n_sample]
+    return ind
+
+
+def information_k_means(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    most_informative = np.argsort(margin_uncertainty(raw_sent, raw_x, raw_y))[:max(int((len(x) / 2)), (n_sample-1))]
+    ind = k_means_n_closet_to_cluster_center(x[most_informative], n_sample).ravel()
+    return ind
+
+
 def random_sample(x, train_sentences, n_samples):
     ind = np.random.choice(len(x), n_samples)
     return ind
 
 
-def random_sample_init(x,n_samples,random_init_sample):
+def k_means_n_closet_to_cluster_center(x, n_sample):
+    x = normalize(x, axis=0)
+    k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(x)), random_state=1).fit(x)
+    return np.argsort(k_means.transform(x)[:, :])[:1]
+
+
+def k_means_min_dist_to_cluster_center(x, n_sample):
+    x = normalize(x, axis=0)
+    k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(x)), random_state=1).fit(x)
+    return np.min(k_means.transform(x)[:, :], axis=1)
+
+
+def random_sample_init(x, n_samples, random_init_sample):
     ind = random_init_sample
     return ind
 
@@ -120,3 +174,8 @@ def knn_representative(x):
     return neighbours
 
 
+EXPERIMENT_METHODS = [mdr, lc_representative, entropy_representative, margin_representative, information_k_means,
+                      random_sample]
+
+ADDITION_SAMPLE_ARGS = [lc_representative, lc_diversity, entropy_representative, entropy_diversity,
+                        margin_representative, margin_k_means, information_k_means]

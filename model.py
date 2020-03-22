@@ -19,7 +19,7 @@ class Model:
     def __init__(self, clf_name, **kwargs):
         # TODO : Option for other type of solvers (lstm etc)
         self._clf = {
-            'RandomForest': self.sklearn_pipeline(RandomForestClassifier()),
+            'RandomForest': self.sklearn_pipeline(RandomForestClassifier(random_state=1)),
             'RBF_SVM': self.sklearn_pipeline(RandomForestClassifier(SVC(gamma=2, C=1))),
             'LSTM': LSTM(n_epochs=5, model=LSTMClassifier(**kwargs))
         }
