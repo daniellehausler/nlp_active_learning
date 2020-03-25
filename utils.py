@@ -70,7 +70,7 @@ def plot_curve_with_region(mean_by_k,mean_minus_std,mean_plus_std,metric):
         plt.plot(x, y)
         plt.fill_between(x,mean_minus_std.iloc[index].values,mean_plus_std.iloc[index].values,alpha=0.2)
 
-    plt.legend(mean_by_k['sample_method'].values)
+    plt.legend(mean_by_k['sample_method'].values+'-'+mean_by_k['representation'].values)
     plt.xlabel('samples')
     plt.ylabel(metric)
     plt.show()
@@ -80,3 +80,6 @@ def pivot_and_plot(result_df,metric):
     mean_minus_std,mean_plus_std = calculate_region_around_mean(mean_by_k , std_by_k)
     plot_curve_with_region(mean_by_k,mean_minus_std,mean_plus_std,metric)
     return mean_by_k
+
+df = pd.read_csv('/Users/uri/nlp_active_learning/results/yelp/yelp24_03_2020_200902.csv')
+pivot_and_plot(df,'f1')
