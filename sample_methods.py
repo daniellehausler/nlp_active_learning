@@ -1,9 +1,9 @@
 import numpy as np
-from sklearn.cluster import KMeans, MiniBatchKMeans
+from sklearn.cluster import KMeans, MiniBatchKMeans, DBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.stats import rankdata
 from sklearn.preprocessing import normalize
-
+from collections import Counter
 from model import Model
 import nmslib
 
@@ -139,6 +139,50 @@ def information_k_means(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
     return ind
 
 
+def k_means_division_representative(x, train_sentences, n_sample):
+    k_means = k_means_cluster(x, n_sample)
+    representative_vec = representative(x)
+    ind = np.array([np.argsort(-representative_vec)[k_means == cluster][:1] for cluster in np.unique(k_means)])
+    return np.concatenate(ind)
+
+
+def k_means_division_diversity(x, train_sentences, n_sample):
+    k_means = k_means_cluster(x, n_sample)
+    diversity_vec = diversity(x, train_sentences)
+    ind = np.array([np.argsort(-diversity_vec)[k_means == cluster][:1] for cluster in np.unique(k_means)])
+    return np.concatenate(ind)
+
+
+def k_means_division_uncertainty(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    k_means = k_means_cluster(x, n_sample)
+    lc_vector = least_confidence(raw_sent, raw_x, raw_y)
+    ind = np.array([np.argsort(-lc_vector)[k_means == cluster][:1] for cluster in np.unique(k_means)])
+    if len(ind) < n_sample:
+        ind = np.vstack((ind, np.argsort(-lc_vector)[:1]))
+    return np.concatenate(ind)
+
+
+def dbscan_division_uncertainty(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
+    clusters = dbscan_cluster(x)
+    lc_vector = least_confidence(raw_sent, raw_x, raw_y)
+    sample_dict = clusters_counts(clusters, n_sample)
+    ind = np.array([np.argsort(-lc_vector)[clusters == cluster][:n] for cluster, n in sample_dict.items()])
+    return np.concatenate(ind)[:n_sample]
+
+
+def dbscan_division_representative(x, train_sentences, n_sample):
+    clusters = dbscan_cluster(x)
+    representative_vec = representative(x)
+    sample_dict = clusters_counts(clusters, n_sample)
+    ind = np.array([np.argsort(-representative_vec)[clusters == cluster][:n] for cluster, n in sample_dict.items()])
+    return np.concatenate(ind)[:n_sample]
+
+
+def clusters_counts(clusters, n_sample):
+    sample_dict = {k: max(int(v / len(clusters) * n_sample), 1) for k, v in Counter(clusters).items()}
+    return sample_dict
+
+
 def random_sample(x, train_sentences, n_samples):
     ind = np.random.choice(len(x), n_samples)
     return ind
@@ -154,6 +198,17 @@ def k_means_min_dist_to_cluster_center(x, n_sample):
     x = normalize(x, axis=0)
     k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(x)), random_state=1).fit(x)
     return np.min(k_means.transform(x)[:, :], axis=1)
+
+
+def k_means_cluster(x, n_sample):
+    x = normalize(x, axis=0)
+    k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(x)), random_state=1).fit(x)
+    return k_means.predict(x)
+
+
+def dbscan_cluster(x):
+    clusters = DBSCAN(metric='cosine', leaf_size=min(len(x), 30))
+    return clusters.fit_predict(x)
 
 
 def random_sample_init(x, n_samples, random_init_sample):
@@ -174,8 +229,11 @@ def knn_representative(x):
     return neighbours
 
 
-EXPERIMENT_METHODS = [mdr, lc_representative, entropy_representative, margin_representative, information_k_means,
-                      random_sample]
+EXPERIMENT_METHODS = [
+    mdr, lc_representative, entropy_representative, margin_representative,
+    information_k_means,
+    dbscan_division_uncertainty, mdr, k_means_division_uncertainty, random_sample]
 
 ADDITION_SAMPLE_ARGS = [lc_representative, lc_diversity, entropy_representative, entropy_diversity,
-                        margin_representative, margin_k_means, information_k_means]
+                        margin_representative, margin_k_means, information_k_means, k_means_division_uncertainty,
+                        dbscan_division_uncertainty]
