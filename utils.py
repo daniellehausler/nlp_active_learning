@@ -81,5 +81,5 @@ def pivot_and_plot(result_df,metric):
     plot_curve_with_region(mean_by_k,mean_minus_std,mean_plus_std,metric)
     return mean_by_k
 
-df = pd.read_csv('/Users/uri/nlp_active_learning/results/yelp/yelp24_03_2020_200902.csv')
-pivot_and_plot(df,'f1')
+#df = pd.read_csv('/Users/uri/nlp_active_learning/results/yelp/yelp24_03_2020_200902.csv')
+#pivot_and_plot(df,'f1')
