@@ -143,6 +143,8 @@ def k_means_division_representative(x, train_sentences, n_sample):
     k_means = k_means_cluster(x, n_sample)
     representative_vec = representative(x)
     ind = np.array([np.argsort(-representative_vec)[k_means == cluster][:1] for cluster in np.unique(k_means)])
+    if len(ind) < n_sample:
+        ind = np.vstack((ind, np.argsort(-representative_vec)[:1]))
     return np.concatenate(ind)
 
 
@@ -150,6 +152,8 @@ def k_means_division_diversity(x, train_sentences, n_sample):
     k_means = k_means_cluster(x, n_sample)
     diversity_vec = diversity(x, train_sentences)
     ind = np.array([np.argsort(-diversity_vec)[k_means == cluster][:1] for cluster in np.unique(k_means)])
+    if len(ind) < n_sample:
+        ind = np.vstack((ind, np.argsort(-diversity_vec)[:1]))
     return np.concatenate(ind)
 
 
@@ -167,6 +171,8 @@ def dbscan_division_uncertainty(x, train_sentences, n_sample, raw_sent, raw_x, r
     lc_vector = least_confidence(raw_sent, raw_x, raw_y)
     sample_dict = clusters_counts(clusters, n_sample)
     ind = np.array([np.argsort(-lc_vector)[clusters == cluster][:n] for cluster, n in sample_dict.items()])
+    if len(ind) < n_sample:
+        ind = np.append((ind, np.argsort(-lc_vector)[:1]))
     return np.concatenate(ind)[:n_sample]
 
 
@@ -175,6 +181,8 @@ def dbscan_division_representative(x, train_sentences, n_sample):
     representative_vec = representative(x)
     sample_dict = clusters_counts(clusters, n_sample)
     ind = np.array([np.argsort(-representative_vec)[clusters == cluster][:n] for cluster, n in sample_dict.items()])
+    if len(ind) < n_sample:
+        ind = np.append((ind, np.argsort(-representative_vec)[:1]))
     return np.concatenate(ind)[:n_sample]
 
 
