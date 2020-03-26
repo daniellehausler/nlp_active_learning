@@ -106,7 +106,7 @@ def run_experiments_with_cross_validation(
         experiments_configs: List,
         model: Model,
         n_sample: int,
-        kf_splits: int = 5,
+        kf_splits: int = 3,
         initialization_method: Callable = random_sample_init,
         embedding_weights=None
 
@@ -114,7 +114,7 @@ def run_experiments_with_cross_validation(
     kf = KFold(n_splits=kf_splits, shuffle=True)
 
     # n_iter = (((len(data) // kf_splits) * (kf_splits-1)) // n_sample) - 2
-    n_iter = 30
+    n_iter = 10
 
     results = []
     random_samples_dic = dict()
@@ -158,11 +158,10 @@ def run_experiments_with_cross_validation(
 DATA_SET = r'experiments_data/imdb.parquet'
 # DATA_SET = r'data_with_vectors/amazon_cells_labelled.parquet'
 dataset_name = 'amazon'
-N_SAMPLE = 20
+N_SAMPLE = 70
 TEST_SIZE = 0.2
 BATCH_SIZE = 20
-LSTM = False
-data = pd.read_parquet(DATA_SET).sample(frac=0.05)
+data = pd.read_parquet(DATA_SET).sample(frac=0.5)
 
 m = Model('RandomForest')
 

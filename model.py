@@ -1,6 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, recall_score, average_precision_score
 from sklearn.svm import SVC
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,7 +25,11 @@ class Model:
         }
         self._model = self._clf[clf_name]
         self._scores = {'accuracy': [],
-                        'f1': [], 'n_samples': []}
+                        'f1': [],
+                        'mcc': [],
+                        'recall': [],
+                        'precision': [],
+                        'n_samples': []}
         self._kwargs = kwargs
 
     @staticmethod
@@ -56,6 +60,15 @@ class Model:
     def f1(self, y_test, y_pred):
         self._scores['f1'].append(f1_score(y_test, y_pred))
 
+    def mcc(self, y_test, y_pred):
+        self._scores['mcc'].append(matthews_corrcoef(y_test, y_pred))
+
+    def recall(self,  y_test, y_pred):
+        self._scores['recall'].append(recall_score(y_test, y_pred))
+
+    def precision(self, y_test, y_pred):
+        self._scores['precision'].append(average_precision_score(y_test, y_pred))
+
     def count_samples(self, x_train):
         self._scores['n_samples'].append(len(x_train))
 
@@ -63,8 +76,14 @@ class Model:
         self.fit(train_sentences, y_train)
         y_pred = self.predict(test_sentences)
         self.count_samples(train_sentences)
+        self.scores_calc(y_test, y_pred)
+
+    def scores_calc(self, y_test, y_pred):
         self.f1(y_test.reshape(len(y_test),), y_pred)
         self.accuracy(y_test, y_pred)
+        self.mcc(y_test, y_pred)
+        self.recall(y_test, y_pred)
+        self.precision(y_test, y_pred)
 
     def get_scores(self):
         return self._scores
