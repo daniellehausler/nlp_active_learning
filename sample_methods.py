@@ -168,7 +168,8 @@ def k_means_division_uncertainty(x, train_sentences, n_sample, raw_sent, raw_x, 
     ind = np.concatenate(ind)
     if len(ind) < n_sample:
         remain = np.delete(lc_vector, ind)
-        ind = np.append(ind, np.argsort(-remain)[:1])
+        n_missing = n_sample - len(ind)
+        ind = np.append(ind, np.argsort(-remain)[:n_missing])
     return ind
 
 
@@ -180,7 +181,8 @@ def dbscan_division_uncertainty(x, train_sentences, n_sample, raw_sent, raw_x, r
     ind = np.concatenate(ind)
     if len(ind) < n_sample:
         remain = np.delete(lc_vector, ind)
-        ind = np.append(ind, np.argsort(-remain)[:1])
+        n_missing = n_sample - len(ind)
+        ind = np.append(ind, np.argsort(-remain)[:n_missing])
     return ind[:n_sample]
 
 
@@ -192,7 +194,8 @@ def dbscan_division_representative(x, train_sentences, n_sample):
     ind = np.concatenate(ind)
     if len(ind) < n_sample:
         remain = np.delete(representative_vec, ind)
-        ind = np.append(ind, np.argsort(-remain)[:1])
+        n_missing = n_sample - len(ind)
+        ind = np.append(ind, np.argsort(-remain)[:n_missing])
     return ind[:n_sample]
 
 
