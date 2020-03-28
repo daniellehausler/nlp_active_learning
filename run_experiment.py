@@ -161,7 +161,7 @@ dataset_name = 'amazon_polar'
 N_SAMPLE = 70
 TEST_SIZE = 0.2
 BATCH_SIZE = 20
-data = pd.read_parquet(DATA_SET).sample(n=4000)
+data = pd.read_parquet(DATA_SET)
 
 m = Model('RandomForest')
 
