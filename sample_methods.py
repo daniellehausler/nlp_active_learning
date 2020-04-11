@@ -1,244 +1,191 @@
 import numpy as np
-from sklearn.cluster import KMeans, MiniBatchKMeans, DBSCAN
+from sklearn.cluster import MiniBatchKMeans
 from sklearn.metrics.pairwise import cosine_similarity
-from scipy.stats import rankdata
 from sklearn.preprocessing import normalize
-from collections import Counter
 from model import Model
 import nmslib
 
 
-def group_cosine_distance_mean(x, n_sample,*args):
-    distance = 1 - cosine_similarity(x, x)
-    mean_distance_over_group = np.mean(distance, axis=1)
-    ind = np.argpartition(-mean_distance_over_group, n_sample)[:n_sample]
+class BaseSampler:
+    def __init__(self, unlabelled_vectors: np.array, labelled_vectors: np.array, n_samples: int):
+        self._unlabelled_vectors = unlabelled_vectors
+        self._labelled_vectors = labelled_vectors
+        self._n_samples = n_samples
+
+
+class UncertaintySampler(BaseSampler):
+    def __init__(
+            self,
+            unlabelled_vectors: np.array,
+            labelled_vectors: np.array,
+            n_samples: int,
+            unlabelled_sentences: np.array,
+            labelled_sentences: np.array,
+            labels: np.array,
+            model_type: str,
+    ):
+        super(UncertaintySampler, self).__init__(unlabelled_vectors, labelled_vectors, n_samples)
+        self._unlabelled_sentences = unlabelled_sentences
+        self._labelled_sentences = labelled_sentences
+        self._labels = labels
+        self._model_type = model_type
+
+    @staticmethod
+    def least_confidence(model_type, unlabelled_sentences, labelled_sentences, labels):
+        m = Model(model_type)
+        m.fit(labelled_sentences, labels)
+        if model_type in ['SVC', 'SVM']:
+            dist_from_decision_boundary = m._model.decision_function(unlabelled_sentences)
+            least_confidence = -np.abs(dist_from_decision_boundary)
+        else:
+            probs = m.proba(unlabelled_sentences)
+            least_confidence = 1 - np.nanmax(probs, axis=1)
+        return least_confidence
+
+    @staticmethod
+    def entropy(model_type, unlabelled_sentences, labelled_sentences, labels):
+        m = Model(model_type)
+        m.fit(labelled_sentences, labels)
+        probs = m.proba(unlabelled_sentences)
+        probs_without_zero = np.where(probs == 0, 10 ** -10, probs)
+        log_probs = np.log(probs_without_zero)
+        return -np.sum(probs * log_probs, axis=1)
+
+    @staticmethod
+    def margin_uncertainty(model_type, unlabelled_sentences, labelled_sentences, labels):
+        m = Model(model_type)
+        m.fit(labelled_sentences, labels)
+        probs = m.proba(unlabelled_sentences)
+        sorted_probs = np.sort(probs, axis=1)
+        difference = sorted_probs[:, -1] - sorted_probs[:, -2]
+        return 1 - difference
+
+    def get_uncertainty_vector(self, method: staticmethod):
+        return method(self._model_type, self._unlabelled_sentences, self._labelled_sentences, self._labels)
+
+    def uncertainty_sample(self, method: staticmethod):
+        uncertainty_vector = self.get_uncertainty_vector(method)
+        return np.argpartition(-uncertainty_vector, self._n_samples)[: self._n_samples]
+
+
+class RepresentativeSampler(BaseSampler):
+
+    @staticmethod
+    def representative(unlabelled_vectors, labelled_vectors):
+        mean_sim_vector = np.mean(cosine_similarity(unlabelled_vectors, unlabelled_vectors), axis=1)
+        return mean_sim_vector
+
+    @staticmethod
+    def diversity(unlabelled_vectors, labelled_vectors):
+        mean_diverse_vector = np.mean(1 - cosine_similarity(unlabelled_vectors, labelled_vectors), axis=1)
+        return mean_diverse_vector
+
+    def get_representative_vector(self, method: staticmethod):
+        return method(self._unlabelled_vectors, self._labelled_vectors)
+
+    def representative_sample(self, method):
+        representative_vector = self.get_representative_vector(method)
+        return np.argpartition(-representative_vector, self._n_samples)[: self._n_samples]
+
+    def representative_diversity_sample(self):
+        representative_vector = self.get_representative_vector(self.representative)
+        diversity_vector = self.get_representative_vector(self.diversity)
+        result = representative_vector * diversity_vector
+        return np.argpartition(-result, self._n_samples)[: self._n_samples]
+
+
+def k_means_n_closet_to_cluster_center(unlabelled_vectors, n_sample):
+    unlabelled_vectors = normalize(unlabelled_vectors, axis=0)
+    k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(unlabelled_vectors)), random_state=1).fit(
+        unlabelled_vectors)
+    return np.argsort(np.min(k_means.transform(unlabelled_vectors), axis=1))[:n_sample]
+
+
+class UncertaintyRepresentativeSampler(UncertaintySampler, RepresentativeSampler):
+    def __init__(
+            self,
+            unlabelled_vectors,
+            labelled_vectors,
+            n_samples,
+            unlabelled_sentences,
+            labelled_sentences,
+            labels,
+            model_type,
+    ):
+        super(UncertaintyRepresentativeSampler, self).__init__(unlabelled_vectors, labelled_vectors, n_samples,
+                                                               unlabelled_sentences, labelled_sentences,
+                                                               labels, model_type)
+
+    def uncertainty_representative_sample(self, uncertainty_method: staticmethod, representative_method: staticmethod):
+        uncertainty_vector = self.get_uncertainty_vector(uncertainty_method)
+        representative_vector = self.get_representative_vector(representative_method)
+        result_vector = uncertainty_vector * representative_vector
+        return np.argpartition(-result_vector, self._n_samples)[: self._n_samples]
+
+    def uncertainty_k_means_sample(self, uncertainty_method: staticmethod):
+        uncertainty_vector = self.get_uncertainty_vector(uncertainty_method)
+        most_uncertain = np.argsort(-uncertainty_vector)[:min(self._n_samples * 5, len(self._unlabelled_sentences))]
+        ind = k_means_n_closet_to_cluster_center(self._unlabelled_vectors[most_uncertain], self._n_samples)
+        return most_uncertain[ind]
+
+
+def least_confidence_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = UncertaintySampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.uncertainty_sample(sampler.least_confidence)
+
+
+def entropy_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = UncertaintySampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.uncertainty_sample(sampler.entropy)
+
+
+def margin_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = UncertaintySampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.uncertainty_sample(sampler.margin_uncertainty)
+
+
+def diversity_sample(unlabelled_vectors, labelled_vectors, n_samples):
+    sampler = RepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples)
+    return sampler.representative_sample(sampler.diversity)
+
+
+def representative_sample(unlabelled_vectors, labelled_vectors, n_samples):
+    sampler = RepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples)
+    return sampler.representative_sample(sampler.representative)
+
+
+def mdr_sample(unlabelled_vectors, labelled_vectors, n_samples):
+    sampler = RepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples)
+    return sampler.representative_diversity_sample()
+
+
+def least_confidence_representative_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = UncertaintyRepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.uncertainty_representative_sample(sampler.least_confidence, sampler.representative)
+
+
+def entropy_representative_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = UncertaintyRepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.uncertainty_representative_sample(sampler.entropy, sampler.representative)
+
+
+def margin_representative_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = UncertaintyRepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.uncertainty_representative_sample(sampler.margin_uncertainty, sampler.representative)
+
+
+def least_confidence_k_means_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = UncertaintyRepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.uncertainty_k_means_sample(sampler.least_confidence)
+
+
+def random_sample(unlabelled_vectors, labelled_vectors, n_samples):
+    ind = np.random.choice(len(unlabelled_vectors), n_samples)
     return ind
 
 
-def cosine_distance_mean(x, train_sentences, n_sample):
-    distance = 1 - cosine_similarity(x, train_sentences)
-    mean_distance_over_train_samples = np.mean(distance, axis=1)
-    ind = np.argpartition(-mean_distance_over_train_samples, n_sample)[:n_sample]
-
-    return ind
-
-
-def group_cosine_distance_sum(x, n_sample):
-    distance = 1 - cosine_similarity(x, x)
-    sum_distance_over_group = np.sum(distance, axis=1)
-    ind = np.argpartition(-sum_distance_over_group, n_sample)[:n_sample]
-    return ind
-
-
-def representative(x):
-    mean_sim_vector = np.mean(cosine_similarity(x, x), axis=1)
-    return mean_sim_vector
-
-
-def diversity(x, train_sentences):
-    mean_diverse_vector = np.mean(1 - cosine_similarity(x, train_sentences), axis=1)
-    return mean_diverse_vector
-
-
-def mdr(x, train_sentences, n_sample):
-    mdr_vector = diversity(x, train_sentences) * representative(x)
-    ind = np.argpartition(-mdr_vector, n_sample)[:n_sample]
-    return ind
-
-
-def rank_mdr(x, train_sentences, n_sample):
-    mdr_vector = (rankdata(-diversity(x, train_sentences)) + rankdata(-representative(x))) / 2
-    ind = np.argpartition(mdr_vector, n_sample)[:n_sample]
-    return ind
-
-
-def representative_max(x, train_sentences, n_sample):
-    representative_vector = representative(x)
-    ind = np.argpartition(-representative_vector, n_sample)[:n_sample]
-    return ind
-
-
-def diversity_max(x, train_sentences, n_sample):
-    diversity_vector = diversity(x, train_sentences)
-    ind = np.argpartition(-diversity_vector, n_sample)[:n_sample]
-    return ind
-
-
-def cosine_distance_sum(x, train_sentences, n_sample):
-    distance = 1 - cosine_similarity(x, train_sentences)
-    sum_distance_over_train_samples = np.sum(distance, axis=1)
-    ind = np.argpartition(-sum_distance_over_train_samples, n_sample)[:n_sample]
-    return ind
-
-
-def least_confidence(train_sentences, raw_x, raw_y):
-    m = Model('RandomForest')
-    m.fit(raw_x, raw_y)
-    probs = m.proba(train_sentences)
-    return 1 - np.nanmax(probs, axis=1)
-
-
-def lc_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    represent_lc_vector = representative(x) * \
-                               least_confidence(raw_sent, raw_x, raw_y)
-    ind = np.argpartition(-represent_lc_vector, n_sample)[:n_sample]
-    return ind
-
-
-def lc_diversity(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    represent_lc_vector = diversity(x, train_sentences) * least_confidence(raw_sent, raw_x, raw_y)
-    ind = np.argpartition(-represent_lc_vector, n_sample)[:n_sample]
-    return ind
-
-
-def entropy(train_sentences, raw_x, raw_y):
-    m = Model('RandomForest')
-    m.fit(raw_x, raw_y)
-    probs = m.proba(train_sentences)
-    probs_without_zero = np.where(probs == 0, 10**-10, probs)
-    log_probs = np.log(probs_without_zero)
-    return -np.sum(probs * log_probs, axis=1)
-
-
-def entropy_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    represent_entropy_vector = representative(x) * entropy(raw_sent, raw_x, raw_y)
-    ind = np.argpartition(-represent_entropy_vector, n_sample)[:n_sample]
-    return ind
-
-
-def entropy_diversity(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    represent_entropy_vector = diversity(x, train_sentences) * entropy(raw_sent, raw_x, raw_y)
-    ind = np.argpartition(-represent_entropy_vector, n_sample)[:n_sample]
-    return ind
-
-
-def margin_uncertainty(train_sentences, raw_x, raw_y):
-    m = Model('RandomForest')
-    m.fit(raw_x, raw_y)
-    probs = m.proba(train_sentences)
-    sorted_probs = np.sort(probs, axis=1)
-    difference = sorted_probs[:, -1] - sorted_probs[:, -2]
-    return 1 - difference
-
-
-def margin_representative(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    represent_margin_vector = representative(x) * margin_uncertainty(raw_sent, raw_x, raw_y)
-    ind = np.argpartition(-represent_margin_vector, n_sample)[:n_sample]
-    return ind
-
-
-def margin_k_means(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    represent_margin_vector = k_means_min_dist_to_cluster_center(x, n_sample) * margin_uncertainty(raw_sent, raw_x, raw_y)
-    ind = np.argpartition(-represent_margin_vector, n_sample)[:n_sample]
-    return ind
-
-
-def information_k_means(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    most_informative = np.argsort(margin_uncertainty(raw_sent, raw_x, raw_y))[:max(int((len(x) / 2)), (n_sample-1))]
-    ind = k_means_n_closet_to_cluster_center(x[most_informative], n_sample).ravel()
-    return ind
-
-
-def k_means_division_representative(x, train_sentences, n_sample):
-    k_means = k_means_cluster(x, n_sample)
-    representative_vec = representative(x)
-    ind = np.array([np.argsort(-representative_vec)[k_means == cluster][:1] for cluster in np.unique(k_means)])
-    ind = np.concatenate(ind)
-    if len(ind) < n_sample:
-        remain = np.delete(representative_vec, ind)
-        ind = np.append(ind, np.argsort(-remain)[:1])
-    return ind
-
-
-def k_means_division_diversity(x, train_sentences, n_sample):
-    k_means = k_means_cluster(x, n_sample)
-    diversity_vec = diversity(x, train_sentences)
-    ind = np.array([np.argsort(-diversity_vec)[k_means == cluster][:1] for cluster in np.unique(k_means)])
-    ind = np.concatenate(ind)
-    if len(ind) < n_sample:
-        remain = np.delete(diversity_vec, ind)
-        ind = np.append(ind, np.argsort(-remain)[:1])
-    return ind
-
-
-def k_means_division_uncertainty(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    k_means = k_means_cluster(x, n_sample)
-    lc_vector = least_confidence(raw_sent, raw_x, raw_y)
-    ind = np.array([np.argsort(-lc_vector)[k_means == cluster][:1] for cluster in np.unique(k_means)])
-    ind = np.concatenate(ind)
-    if len(ind) < n_sample:
-        remain = np.delete(lc_vector, ind)
-        n_missing = n_sample - len(ind)
-        ind = np.append(ind, np.argsort(-remain)[:n_missing])
-    return ind
-
-
-def dbscan_division_uncertainty(x, train_sentences, n_sample, raw_sent, raw_x, raw_y):
-    clusters = dbscan_cluster(x)
-    lc_vector = least_confidence(raw_sent, raw_x, raw_y)
-    sample_dict = clusters_counts(clusters, n_sample)
-    ind = np.array([np.argsort(-lc_vector)[clusters == cluster][:n].ravel() for cluster, n in sample_dict.items()])
-    ind = np.concatenate(ind)
-    if len(ind) < n_sample:
-        remain = np.delete(lc_vector, ind)
-        n_missing = n_sample - len(ind)
-        ind = np.append(ind, np.argsort(-remain)[:n_missing])
-    return ind[:n_sample]
-
-
-def dbscan_division_representative(x, train_sentences, n_sample):
-    clusters = dbscan_cluster(x)
-    representative_vec = representative(x)
-    sample_dict = clusters_counts(clusters, n_sample)
-    ind = np.array([np.argsort(-representative_vec)[clusters == cluster][:n] for cluster, n in sample_dict.items()])
-    ind = np.concatenate(ind)
-    if len(ind) < n_sample:
-        remain = np.delete(representative_vec, ind)
-        n_missing = n_sample - len(ind)
-        ind = np.append(ind, np.argsort(-remain)[:n_missing])
-    return ind[:n_sample]
-
-
-def clusters_counts(clusters, n_sample):
-    sample_dict = {k: max(int(v / len(clusters) * n_sample), 1) for k, v in Counter(clusters).items()}
-    return sample_dict
-
-
-def random_sample(x, train_sentences, n_samples):
-    ind = np.random.choice(len(x), n_samples)
-    return ind
-
-
-def k_means_n_closet_to_cluster_center(x, n_sample):
-    x = normalize(x, axis=0)
-    k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(x)), random_state=1).fit(x)
-    return np.argsort(k_means.transform(x)[:, :])[:1]
-
-
-def k_means_min_dist_to_cluster_center(x, n_sample):
-    x = normalize(x, axis=0)
-    k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(x)), random_state=1).fit(x)
-    return np.min(k_means.transform(x)[:, :], axis=1)
-
-
-def k_means_cluster(x, n_sample):
-    x = normalize(x, axis=0)
-    k_means = MiniBatchKMeans(n_clusters=n_sample, batch_size=min(100, len(x)), random_state=1).fit(x)
-    return k_means.predict(x)
-
-
-def dbscan_cluster(x):
-    clusters = DBSCAN(metric='cosine', leaf_size=min(len(x), 30))
-    return clusters.fit_predict(x)
-
-
-def random_sample_init(x, n_samples, random_init_sample):
+def random_sample_init(unlabelled_vectors, n_samples, random_init_sample):
     ind = random_init_sample
-    return ind
-
-
-def random(x, n_samples):
-    ind = np.random.choice(len(x), n_samples)
     return ind
 
 
@@ -250,11 +197,31 @@ def knn_representative(x):
     return neighbours
 
 
-EXPERIMENT_METHODS = [
-    mdr, lc_representative, entropy_representative, margin_representative,
-    information_k_means,
-    dbscan_division_uncertainty, mdr, k_means_division_uncertainty, random_sample]
+UNCERTAINTY_SAMPLES = [
+    least_confidence_sample,
+    entropy_sample,
+    margin_sample,
+]
 
-ADDITION_SAMPLE_ARGS = [lc_representative, lc_diversity, entropy_representative, entropy_diversity,
-                        margin_representative, margin_k_means, information_k_means, k_means_division_uncertainty,
-                        dbscan_division_uncertainty]
+UNCERTAINTY_REPRESENTATIVE_SAMPLES = [
+    least_confidence_representative_sample,
+    entropy_representative_sample,
+    margin_representative_sample,
+    least_confidence_k_means_sample
+
+]
+
+REPRESENTATIVE_SAMPLES = [
+    mdr_sample,
+    representative_sample,
+    diversity_sample
+]
+
+EXPERIMENT_METHODS = [
+    least_confidence_sample,
+    mdr_sample,
+    least_confidence_representative_sample,
+    least_confidence_k_means_sample,
+    random_sample]
+
+ADDITION_SAMPLE_ARGS = UNCERTAINTY_SAMPLES + UNCERTAINTY_REPRESENTATIVE_SAMPLES
