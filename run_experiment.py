@@ -1,6 +1,8 @@
+import time
 from itertools import product
+from pathlib import PurePosixPath, Path
 from typing import Callable, Dict, List
-from utils import read_write_results, plot_sample_method, write_results
+from utils import read_write_results, plot_sample_method, write_results, pivot_and_plot
 from copy import deepcopy
 import pandas as pd
 from active_learning import ActiveLearner
@@ -10,15 +12,11 @@ from model import Model
 from sample_methods import ADDITION_SAMPLE_ARGS, EXPERIMENT_METHODS
 
 
-# TODO :
-#  2. add more sample methods,
-#  4. parallel run of multiple experiments
-
 def run_experiment(
         active_learner: ActiveLearner,
-        model: Model,
+        model_type: str,
         embeddings_train: np.array,
-        train_sent: np.array,
+        unlabelled_sentences: np.array,
         test_sent: np.array,
         train_y: np.array,
         test_y: np.array,
@@ -27,32 +25,40 @@ def run_experiment(
         random_init_sample,
         dataset_name: str
 ) -> Dict:
-    raw_x = None
-    raw_y = None
+    labelled_sentences = None
+    labelled_sentences_labels = None
+
+    model = Model(model_type)
 
     for i in range(n_iter):
 
         sampling_args = {}
 
         if sample_method in ADDITION_SAMPLE_ARGS:
-            sampling_args = {'raw_sent': train_sent,
-                             'raw_x': raw_x,
-                             'raw_y': raw_y}
+            sampling_args = {'unlabelled_sentences': unlabelled_sentences,
+                             'labelled_sentences': labelled_sentences,
+                             'labels': labelled_sentences_labels,
+                             'model_type': model_type}
 
         sampled_index = active_learner.add_n_new_samples(
             sample_method,
             embeddings_train,
             train_y,
-            train_sent,
+            unlabelled_sentences,
             random_init_sample,
             **sampling_args
         )
 
-        raw_x = active_learner.get_raw_train_sent().ravel()
-        raw_y = active_learner.get_y_train().ravel()
-        train_sent, train_y, embeddings_train = remove_used_index(sampled_index, train_sent, train_y, embeddings_train)
+        labelled_sentences = active_learner.get_raw_train_sent()
+        labelled_sentences_labels = active_learner.get_y_train().ravel()
 
-        model.evaluate(raw_x, test_sent, raw_y, test_y)
+        if labelled_sentences.dtype != float:
+            labelled_sentences = labelled_sentences.ravel()
+
+        unlabelled_sentences, train_y, embeddings_train = remove_used_index(sampled_index, unlabelled_sentences,
+                                                                            train_y, embeddings_train)
+
+        model.evaluate(labelled_sentences, test_sent, labelled_sentences_labels, test_y)
         print(f'iter_{i}_out_of_{n_iter}')
         print(f'{dataset_name}_ {sample_method.__name__}')
         print(model.get_scores()['accuracy'][-1])
@@ -104,17 +110,15 @@ def run_experiments_with_cross_validation(
         data,
         dataset_name,
         experiments_configs: List,
-        model: Model,
         n_sample: int,
-        kf_splits: int = 3,
+        n_iter: int = 10,
+        kf_splits: int = 5,
         initialization_method: Callable = random_sample_init,
-        embedding_weights=None
 
 ):
     kf = KFold(n_splits=kf_splits, shuffle=True)
 
-    n_iter = (((len(data) // kf_splits) * (kf_splits-1)) // n_sample) - 2
-    #n_iter = 10
+    n_iter = (((len(data) // kf_splits) * (kf_splits - 1)) // n_sample) - 1
 
     results = []
     random_samples_dic = dict()
@@ -124,11 +128,15 @@ def run_experiments_with_cross_validation(
         labels = np.array([np.array([label]) for label in data.Label.values])
         sentences = np.array([sent for sent in data.sentence.tolist()])
 
+        if config['model_type'] in ORIGINAL_REPRESENTATION_MODELS:
+            sentences = representations
+
         train_representations, test_representations = representations[train_index], representations[test_index]
         train_labels, test_labels = labels[train_index], labels[test_index]
         train_sentences, test_sentences = sentences[train_index], sentences[test_index]
 
-        random_samples_dic[k] = random_samples_dic.get(k, np.random.randint(len(train_index), size=n_sample)) #generate n_sample random indexes from train_index.
+        random_samples_dic[k] = random_samples_dic.get(k, np.random.randint(len(train_index),
+                                                                            size=n_sample))  # generate n_sample random indexes from train_index.
         random_init_sample = random_samples_dic.get(k)
         learner = ActiveLearner(
             initialization_method=initialization_method,
@@ -136,7 +144,7 @@ def run_experiments_with_cross_validation(
         )
 
         res = run_experiment(deepcopy(learner),
-                             deepcopy(model),
+                             config['model_type'],
                              np.copy(train_representations),
                              np.copy(train_sentences),
                              np.copy(test_sentences),
@@ -150,32 +158,44 @@ def run_experiments_with_cross_validation(
         res['k_fold'] = [k] * n_iter
         res['sample_method'] = [config['sample_method'].__name__] * n_iter
         res['representation'] = [config['representation']] * n_iter
+        res['model_type'] = [config['model_type']] * n_iter
         results.append(res)
 
     write_results(results, dataset_name)
 
 
-#DATA_SET = r'experiments_data/imdb.parquet'
-DATA_SET = r'data_with_vectors/amazon_polar_with_vectors.parquet'
-dataset_name = 'amazon_polar'
-N_SAMPLE = 70
-TEST_SIZE = 0.2
-BATCH_SIZE = 20
-data = pd.read_parquet(DATA_SET)
+if __name__ == '__main__':
+    DATA_SETS = ['yelp_cells_labelled.parquet', 'amazon_cells_labelled.parquet', 'imdb_with_vectors.parquet']
+    DATA_PATH = 'data_with_vectors'
+    DATA_SET = 'yelp_cells_labelled.parquet'
+    DATA_SET_PATH = Path(DATA_PATH) / DATA_SET
+    dataset_name = str(DATA_SET_PATH).rpartition('\\')[-1].rpartition('.')[0]
+    N_SAMPLE = 50
+    data = pd.read_parquet(DATA_SET_PATH)
 
-m = Model('RandomForest')
+    ORIGINAL_REPRESENTATION_MODELS = ['RF', 'SVM', 'LR']
+    TFIDF_REPRESENTATION_MODELS = ['RandomForest', 'SVC', 'LogisticRegression']
+    REPRESENTATIONS = ['SentenceBert', 'AvgBert']
+    MODELS_LIST = TFIDF_REPRESENTATION_MODELS
 
-experiment_configs = [
-    {'representation': 'SentenceBert', 'sample_method': sample_method} for sample_method in EXPERIMENT_METHODS
-] + [
-    {'representation': 'AvgBert', 'sample_method': sample_method} for sample_method in EXPERIMENT_METHODS
-]
+    experiment_configs = [
+        {'representation': representation, 'sample_method': sample_method, 'model_type': model_type} for
+        (sample_method, model_type, representation) in
+        product(EXPERIMENT_METHODS, MODELS_LIST, REPRESENTATIONS)
 
-run_experiments_with_cross_validation(
-    data,
-    dataset_name,
-    experiment_configs,
-    m,
-    N_SAMPLE,
-)
-# plot_sample_method('toxic', 'f1')
+    ]
+
+    run_experiments_with_cross_validation(
+        data,
+        dataset_name,
+        experiment_configs,
+        N_SAMPLE,
+    )
+
+    timestamp = time.strftime("%d_%m_%Y_%H%M%S")
+    file_name = dataset_name + timestamp + '.csv'
+    df = pd.read_csv(f'results/{dataset_name}/{file_name}')
+    for model_type in MODELS_LIST:
+        pivot_and_plot(df, 'f1', model_type)
+        pivot_and_plot(df, 'accuracy', model_type)
+
