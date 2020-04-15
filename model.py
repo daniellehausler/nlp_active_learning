@@ -1,6 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, recall_score, average_precision_score
+from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, recall_score, precision_score
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 import torch.nn as nn
@@ -63,16 +63,16 @@ class Model:
         self._scores['accuracy'].append(accuracy_score(y_test, y_pred))
 
     def f1(self, y_test, y_pred):
-        self._scores['f1'].append(f1_score(y_test, y_pred))
+        self._scores['f1'].append(f1_score(y_test, y_pred, average='weighted'))
 
     def mcc(self, y_test, y_pred):
         self._scores['mcc'].append(matthews_corrcoef(y_test, y_pred))
 
     def recall(self,  y_test, y_pred):
-        self._scores['recall'].append(recall_score(y_test, y_pred))
+        self._scores['recall'].append(recall_score(y_test, y_pred, average='weighted'))
 
     def precision(self, y_test, y_pred):
-        self._scores['precision'].append(average_precision_score(y_test, y_pred))
+        self._scores['precision'].append(precision_score(y_test, y_pred, average='weighted'))
 
     def count_samples(self, x_train):
         self._scores['n_samples'].append(len(x_train))
