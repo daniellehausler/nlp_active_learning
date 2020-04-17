@@ -90,5 +90,6 @@ def pivot_and_plot(result_df, metric, model_type, dataset_name):
     plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric, model_type, dataset_name)
     return mean_by_k
 
+
 df = pd.read_csv('results/mr_sentence_polarity_embedded/mr_sentence_polarity_embedded14_04_2020_101406.csv')
 pivot_and_plot(df,'accuracy', 'LogisticRegression', 'mr_sentence_polarity_embedded')
