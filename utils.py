@@ -63,7 +63,7 @@ def calculate_region_around_mean(mean_by_k, std_by_k):
     return mean_minus_std, mean_plus_std
 
 
-def plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric):
+def plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric, model_type, dataset_name):
     for index, row in mean_by_k.iterrows():
         x = row['mean'].index.values.astype(int)
         y = row['mean'].values
@@ -73,17 +73,23 @@ def plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric):
     plt.legend(mean_by_k['sample_method'].values + '-' + mean_by_k['representation'].values)
     plt.xlabel('samples')
     plt.ylabel(metric)
+    plt.title(f'model {model_type}')
+
+    p = Path(PurePosixPath('figures'))
+    p.mkdir(parents=True, exist_ok=True)
+    timestamp = time.strftime("%d_%m_%Y_%H%M%S")
+    file_name = PurePosixPath(p).joinpath(f'{dataset_name}_{model_type}_{metric}'+ f'{timestamp}' + '.png')
+    plt.savefig(file_name)
     plt.show()
 
 
-def pivot_and_plot(result_df, metric, model_type):
+def pivot_and_plot(result_df, metric, model_type, dataset_name):
     result_df = result_df[result_df.model_type == model_type]
     mean_by_k, std_by_k = pivot_table_result_by_method(result_df, metric)
     mean_minus_std, mean_plus_std = calculate_region_around_mean(mean_by_k, std_by_k)
-    plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric)
+    plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric, model_type, dataset_name)
     return mean_by_k
 
-#df = pd.read_csv('/Users/uri/nlp_active_learning/results/amazon_polar_150/amazon_polar_15028_03_2020_090052.csv')
-# pivot_and_plot(df,'f1')
-# pivot_and_plot(df,'mcc')
-# pivot_and_plot(df,'accuracy')
+
+df = pd.read_csv('results/mr_sentence_polarity_embedded/mr_sentence_polarity_embedded14_04_2020_101406.csv')
+pivot_and_plot(df,'accuracy', 'LogisticRegression', 'mr_sentence_polarity_embedded')

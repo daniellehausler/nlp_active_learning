@@ -4,6 +4,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 from model import Model
 import nmslib
+from sklearn.preprocessing import MinMaxScaler
 
 
 class BaseSampler:
@@ -33,11 +34,13 @@ class UncertaintySampler(BaseSampler):
     @staticmethod
     def least_confidence(model_type, unlabelled_sentences, labelled_sentences, labels):
         m = Model(model_type)
-        m.fit(labelled_sentences, labels)
         if model_type in ['SVC', 'SVM']:
-            dist_from_decision_boundary = m._model.decision_function(unlabelled_sentences)
-            least_confidence = -np.abs(dist_from_decision_boundary)
+            scaler = MinMaxScaler()
+            m.fit(scaler.fit_transform(labelled_sentences), labels)
+            dist_from_decision_boundary = m._model.decision_function(scaler.fit_transform(unlabelled_sentences))
+            least_confidence = -np.nanmin(np.abs(dist_from_decision_boundary), axis=1)
         else:
+            m.fit(labelled_sentences, labels)
             probs = m.proba(unlabelled_sentences)
             least_confidence = 1 - np.nanmax(probs, axis=1)
         return least_confidence

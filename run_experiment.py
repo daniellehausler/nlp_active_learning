@@ -111,7 +111,7 @@ def run_experiments_with_cross_validation(
         dataset_name,
         experiments_configs: List,
         n_sample: int,
-        n_iter: int = 10,
+        n_iter: int = 40,
         kf_splits: int = 5,
         initialization_method: Callable = random_sample_init,
 
@@ -167,10 +167,10 @@ def run_experiments_with_cross_validation(
 if __name__ == '__main__':
     DATA_SETS = ['yelp_cells_labelled.parquet', 'amazon_cells_labelled.parquet', 'imdb_with_vectors.parquet']
     DATA_PATH = 'data_with_vectors'
-    DATA_SET = 'yelp_cells_labelled.parquet'
+    DATA_SET = 'mr_sentence_polarity_embedded.parquet'
     DATA_SET_PATH = Path(DATA_PATH) / DATA_SET
     dataset_name = str(DATA_SET_PATH).rpartition('\\')[-1].rpartition('.')[0]
-    N_SAMPLE = 50
+    N_SAMPLE = 100
     data = pd.read_parquet(DATA_SET_PATH)
 
     ORIGINAL_REPRESENTATION_MODELS = ['RF', 'SVM', 'LR']
@@ -196,6 +196,6 @@ if __name__ == '__main__':
     file_name = dataset_name + timestamp + '.csv'
     df = pd.read_csv(f'results/{dataset_name}/{file_name}')
     for model_type in MODELS_LIST:
-        pivot_and_plot(df, 'f1', model_type)
-        pivot_and_plot(df, 'accuracy', model_type)
+        pivot_and_plot(df, 'f1', model_type, dataset_name)
+        pivot_and_plot(df, 'accuracy', model_type, dataset_name)
 
