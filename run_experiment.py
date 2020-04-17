@@ -118,7 +118,7 @@ def run_experiments_with_cross_validation(
 ):
     kf = KFold(n_splits=kf_splits, shuffle=True)
 
-    # n_iter = (((len(data) // kf_splits) * (kf_splits - 1)) // n_sample) - 1
+    n_iter = (((len(data) // kf_splits) * (kf_splits - 1)) // n_sample) - 1
 
     results = []
     random_samples_dic = dict()

@@ -1,7 +1,7 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, recall_score, precision_score
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
 from sklearn.linear_model import LogisticRegression
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,10 +21,10 @@ class Model:
         # TODO : Option for other type of solvers (lstm etc)
         self._clf = {
             'RandomForest': self.sklearn_pipeline(RandomForestClassifier(random_state=1)),
-            'SVC': self.sklearn_pipeline(SVC(random_state=1)),
+            'SVC': self.sklearn_pipeline(LinearSVC(random_state=1)),
             'LogisticRegression': self.sklearn_pipeline(LogisticRegression(random_state=1)),
             'RF': RandomForestClassifier(random_state=1),
-            'SVM': SVC(random_state=1),
+            'SVM': LinearSVC(random_state=1),
             'LR': LogisticRegression(random_state=1),
             'LSTM': LSTM(n_epochs=5, model=LSTMClassifier(**kwargs))
         }
