@@ -1,3 +1,4 @@
+import pickle
 from pathlib import Path, PurePosixPath
 import time
 import pandas as pd
@@ -15,13 +16,16 @@ def read_write_results(dic, sample_method, dataset_name):
     df.to_csv(file_name, index=False)
 
 
-def write_results(results_list, dataset_name):
+def write_results(results_list, dataset_name, chosen_samples):
     p = Path(PurePosixPath('results').joinpath(dataset_name))
     p.mkdir(parents=True, exist_ok=True)
     df = pd.concat([pd.DataFrame.from_dict(res) for res in results_list])
     timestamp = time.strftime("%d_%m_%Y_%H%M%S")
     file_name = PurePosixPath(p).joinpath(dataset_name + timestamp + '.csv')
     df.to_csv(file_name, index=False)
+
+    with open(str(PurePosixPath(p).joinpath(f'{dataset_name}_{timestamp}.pickle')), 'wb') as handle:
+        pickle.dump(chosen_samples, handle)
 
 
 def plot_sample_method(dataset_name, metric):
@@ -78,7 +82,7 @@ def plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric, mod
     p = Path(PurePosixPath('figures'))
     p.mkdir(parents=True, exist_ok=True)
     timestamp = time.strftime("%d_%m_%Y_%H%M%S")
-    file_name = PurePosixPath(p).joinpath(f'{dataset_name}_{model_type}_{metric}'+ f'{timestamp}' + '.png')
+    file_name = PurePosixPath(p).joinpath(f'{dataset_name}_{model_type}_{metric}' + f'{timestamp}' + '.png')
     plt.savefig(file_name)
     plt.show()
 
@@ -90,5 +94,6 @@ def pivot_and_plot(result_df, metric, model_type, dataset_name):
     plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric, model_type, dataset_name)
     return mean_by_k
 
+
 df = pd.read_csv('results/mr_sentence_polarity_embedded/mr_sentence_polarity_embedded14_04_2020_101406.csv')
-pivot_and_plot(df,'accuracy', 'LogisticRegression', 'mr_sentence_polarity_embedded')
+pivot_and_plot(df, 'accuracy', 'LogisticRegression', 'mr_sentence_polarity_embedded')
