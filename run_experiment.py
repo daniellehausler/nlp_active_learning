@@ -1,7 +1,7 @@
 import time
 from itertools import product
 from pathlib import PurePosixPath, Path
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Tuple
 from utils import read_write_results, plot_sample_method, write_results, pivot_and_plot
 from copy import deepcopy
 import pandas as pd
@@ -24,9 +24,10 @@ def run_experiment(
         sample_method: Callable,
         random_init_sample,
         dataset_name: str
-) -> Dict:
+) -> Tuple:
     labelled_sentences = None
     labelled_sentences_labels = None
+    chosen_samples = {'labels': [], 'sentences': []}
 
     model = Model(model_type)
 
@@ -55,6 +56,9 @@ def run_experiment(
         if labelled_sentences.dtype != float:
             labelled_sentences = labelled_sentences.ravel()
 
+        chosen_samples['labels'].append(unlabelled_sentences[sampled_index])
+        chosen_samples['sentences'].append(unlabelled_sentences[sampled_index])
+
         unlabelled_sentences, train_y, embeddings_train = remove_used_index(sampled_index, unlabelled_sentences,
                                                                             train_y, embeddings_train)
 
@@ -63,7 +67,7 @@ def run_experiment(
         print(f'{dataset_name}_ {sample_method.__name__}')
         print(model.get_scores()['accuracy'][-1])
 
-    return model.get_scores()
+    return model.get_scores(), chosen_samples
 
 
 def remove_used_index(
@@ -111,7 +115,7 @@ def run_experiments_with_cross_validation(
         dataset_name,
         experiments_configs: List,
         n_sample: int,
-        n_iter: int = 40,
+        n_iter: int = 20,
         kf_splits: int = 5,
         initialization_method: Callable = random_sample_init,
 
@@ -121,6 +125,7 @@ def run_experiments_with_cross_validation(
     n_iter = (((len(data) // kf_splits) * (kf_splits - 1)) // n_sample) - 1
 
     results = []
+    samples_data = []
     random_samples_dic = dict()
 
     for (k, (train_index, test_index)), config in product(enumerate(kf.split(data)), experiments_configs):
@@ -143,7 +148,7 @@ def run_experiments_with_cross_validation(
             n_samples=n_sample
         )
 
-        res = run_experiment(deepcopy(learner),
+        res, chosen_samples = run_experiment(deepcopy(learner),
                              config['model_type'],
                              np.copy(train_representations),
                              np.copy(train_sentences),
@@ -156,16 +161,17 @@ def run_experiments_with_cross_validation(
                              dataset_name)
 
         res['k_fold'] = [k] * n_iter
-        res['sample_method'] = [config['sample_method'].__name__] * n_iter
-        res['representation'] = [config['representation']] * n_iter
-        res['model_type'] = [config['model_type']] * n_iter
+        chosen_samples['sample_method'] = res['sample_method'] = [config['sample_method'].__name__] * n_iter
+        chosen_samples['representation'] = res['representation'] = [config['representation']] * n_iter
+        chosen_samples['model_type'] = res['model_type'] = [config['model_type']] * n_iter
         results.append(res)
+        samples_data.append(chosen_samples)
 
-    write_results(results, dataset_name)
+    write_results(results, dataset_name, samples_data)
 
 
 if __name__ == '__main__':
-    DATA_SETS = ['yelp_cells_labelled.parquet', 'amazon_cells_labelled.parquet', 'imdb_with_vectors.parquet']
+    DATA_SETS = ['mr_sentence_polarity_embedded.parquet', 'trec5000_embedded.parquet', 'toxic_5000.parquet']
     DATA_PATH = 'data_with_vectors'
     DATA_SET = 'mr_sentence_polarity_embedded.parquet'
     DATA_SET_PATH = Path(DATA_PATH) / DATA_SET
