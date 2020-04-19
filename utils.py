@@ -97,3 +97,4 @@ def pivot_and_plot(result_df, metric, model_type, dataset_name):
 
 df = pd.read_csv('results/mr_sentence_polarity_embedded/mr_sentence_polarity_embedded14_04_2020_101406.csv')
 pivot_and_plot(df, 'accuracy', 'LogisticRegression', 'mr_sentence_polarity_embedded')
+
