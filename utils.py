@@ -95,6 +95,7 @@ def pivot_and_plot(result_df, metric, model_type, dataset_name):
     return mean_by_k
 
 
+
 def calculate_ALC(result_df,dataset_name, metric):
     from sklearn.metrics import auc
     experiment_list = []
