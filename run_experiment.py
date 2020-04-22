@@ -176,8 +176,8 @@ if __name__ == '__main__':
     DATA_SET = 'mr_sentence_polarity_embedded.parquet'
     DATA_SET_PATH = Path(DATA_PATH) / DATA_SET
     dataset_name = str(DATA_SET_PATH).rpartition('\\')[-1].rpartition('.')[0]
-    N_SAMPLE = 100
     data = pd.read_parquet(DATA_SET_PATH)
+    N_SAMPLE = int(len(data) * 0.8 * 0.03)
 
     ORIGINAL_REPRESENTATION_MODELS = ['SVM']
     TFIDF_REPRESENTATION_MODELS = ['SVC']
