@@ -179,10 +179,10 @@ if __name__ == '__main__':
     N_SAMPLE = 100
     data = pd.read_parquet(DATA_SET_PATH)
 
-    ORIGINAL_REPRESENTATION_MODELS = ['RF', 'SVM', 'LR']
-    TFIDF_REPRESENTATION_MODELS = ['RandomForest', 'SVC', 'LogisticRegression']
+    ORIGINAL_REPRESENTATION_MODELS = ['SVM']
+    TFIDF_REPRESENTATION_MODELS = ['SVC']
     REPRESENTATIONS = ['SentenceBert', 'AvgBert']
-    MODELS_LIST = TFIDF_REPRESENTATION_MODELS
+    MODELS_LIST = ORIGINAL_REPRESENTATION_MODELS
 
     experiment_configs = [
         {'representation': representation, 'sample_method': sample_method, 'model_type': model_type} for

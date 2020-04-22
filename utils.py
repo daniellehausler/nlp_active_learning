@@ -95,6 +95,23 @@ def pivot_and_plot(result_df, metric, model_type, dataset_name):
     return mean_by_k
 
 
-df = pd.read_csv('results/mr_sentence_polarity_embedded/mr_sentence_polarity_embedded14_04_2020_101406.csv')
-pivot_and_plot(df, 'accuracy', 'LogisticRegression', 'mr_sentence_polarity_embedded')
 
+def calculate_ALC(result_df,dataset_name, metric):
+    from sklearn.metrics import auc
+    experiment_list = []
+    ALC_list = []
+    df = pd.DataFrame()
+    mean_by_k, std_by_k = pivot_table_result_by_method(result_df, metric)
+    for index, row in mean_by_k.iterrows():
+        x = row['mean'].index.values.astype(int)
+        y = row['mean'].values
+        ALC = auc(x, y) / auc(x, np.array(len(x) * [1]))
+        experiment_list.append(str(row['sample_method'].values + '-' + row['representation'].values))
+        ALC_list.append(ALC)
+    df['Experiment'] = experiment_list
+    df['ALC'] = ALC_list
+    p = Path(PurePosixPath('results').joinpath(dataset_name)).joinpath(time.strftime("%d_%m_%Y_%H%M%S") + 'ACL.csv')
+    df.to_csv(p, index=False)
+
+# df = pd.read_csv('results/mr_sentence_polarity_embedded/mr_sentence_polarity_embedded22_04_2020_114535.csv')
+# pivot_and_plot(df, 'f1', 'SVM', 'mr_sentence_polarity_embedded')
