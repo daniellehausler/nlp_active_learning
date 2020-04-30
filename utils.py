@@ -24,8 +24,8 @@ def write_results(results_list, dataset_name, chosen_samples):
     file_name = PurePosixPath(p).joinpath(dataset_name + timestamp + '.csv')
     df.to_csv(file_name, index=False)
 
-    with open(str(PurePosixPath(p).joinpath(f'{dataset_name}_{timestamp}.pickle')), 'wb') as handle:
-        pickle.dump(chosen_samples, handle)
+    #with open(str(PurePosixPath(p).joinpath(f'{dataset_name}_{timestamp}.pickle')), 'wb') as handle:
+    #   pickle.dump(chosen_samples, handle)
 
 
 def plot_sample_method(dataset_name, metric):
@@ -92,38 +92,45 @@ def plot_curve_with_region(mean_by_k, mean_minus_std, mean_plus_std, metric, mod
                                 "least_confidence_mdr_sample":"LC-MDR",
                                 "least_confidence_sample":"LC",
                                 "mdr_sample":"MDR",
-                                #"qbc_knn_density_sample":"QBC-KNN",
+                                "qbc_knn_density_sample":"QBC-KNN",
+                                "qbc_sample":"QBC",
                                 "random_sample":"Rand"}
     mean_by_k.replace({"sample_method":sample_method_short_name,"representation":representation_short_name},inplace=True)
-    n = int(len(mean_by_k['representation'])/(mean_by_k['representation'].nunique()))
-    new_colors = [plt.get_cmap('cool')(1. * i / n) for i in range(n)]
-    new_colors.extend([plt.get_cmap('autumn')(1. * i / n) for i in range(n)])
-    plt.rc('axes', prop_cycle=(cycler('color', new_colors)))
-    sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 
-    for index, row in mean_by_k.iterrows():
-        x = row['mean'].index.values.astype(int)
-        y = row['mean'].values
-        xnew = np.linspace(x.min(), x.max(), 100)
-        spl = make_interp_spline(x, y, k=2)
-        power_smooth = spl(xnew)
-        plt.plot(xnew, power_smooth,linewidth=0.5,markevery=3,marker = '.')
-        #plt.fill_between(x, mean_minus_std.iloc[index].values, mean_plus_std.iloc[index].values, alpha=0.2)
+    for representation in ['AvB','SenB']:
+        mean_by_k_by_rep = mean_by_k[mean_by_k.representation==representation]
+        n = int(len(mean_by_k_by_rep['representation']) / (mean_by_k_by_rep['representation'].nunique()))
+        if representation =='SenB':
+            new_colors =[plt.get_cmap('Accent')(i) for i in range(n)]# [plt.get_cmap('hot')(1. * i / n) for i in range(n)]
+        else:
+            new_colors =[plt.get_cmap('Accent')(i) for i in range(n)]# [plt.get_cmap('cool')(1. * i / n) for i in range(n)]
+        plt.rc('axes', prop_cycle=(cycler('color', new_colors)))
+        sns.set_style("darkgrid", {"axes.facecolor": ".9"})
+        for index, row in mean_by_k_by_rep.iterrows():
+            x = row['mean'].index.values.astype(int)
+            y = row['mean'].values
+            xnew = np.linspace(x.min(), x.max(), 100)
+            spl = make_interp_spline(x, y, k=2)
+            power_smooth = spl(xnew)
+            plt.plot(xnew, power_smooth,linewidth=0.5,markevery=3,marker = '.')
+            #plt.plot(x,y)
+            #plt.fill_between(x, mean_minus_std.iloc[index].values, mean_plus_std.iloc[index].values, alpha=0.2)
 
-    plt.legend(mean_by_k['sample_method'].values + '-' + mean_by_k['representation'].values,
-               bbox_to_anchor=(1.05, 1.0), loc='upper left')
+        plt.legend(mean_by_k_by_rep['sample_method'].values + '-' + mean_by_k_by_rep['representation'].values,
+                    loc='lower right',fontsize='x-small') #bbox_to_anchor=(1.05, 1.0)
+        plt.xlim([xnew.min(),xnew.max()+70])
+        plt.xlabel('samples')
+        plt.ylabel(metric)
+        #plt.title(f'model {model_type}+{representation}+{dataset_name}')
 
-    plt.xlabel('samples')
-    plt.ylabel(metric)
-    plt.title(f'model {dataset_name}')
-
-    p = Path(PurePosixPath('results'))
-    p.mkdir(parents=True, exist_ok=True)
-    timestamp = time.strftime("%d_%m_%Y_%H%M%S")
-    file_name = PurePosixPath(p).joinpath(f'{dataset_name}/{model_type}_{metric}' + f'{timestamp}' + '.png')
-    plt.tight_layout()
-    plt.savefig(file_name)
-    plt.show()
+        #p = Path(PurePosixPath('results'))
+        #p.mkdir(parents=True, exist_ok=True)
+        #timestamp = time.strftime("%d_%m_%Y_%H%M%S")
+        #file_name = PurePosixPath(p).joinpath(f'{dataset_name}/{model_type}_{metric}' + f'{timestamp}' + '.png')
+        plt.tight_layout()
+        file_name='/Users/uri/nlp_active_learning/results/Final Results/Embedding_representation/figure/'+dataset_name+'_'+metric+'_'+representation+'.png'
+        plt.savefig(file_name)
+        plt.show()
 
 
 def pivot_and_plot(result_df, metric, model_type, dataset_name):
@@ -135,22 +142,8 @@ def pivot_and_plot(result_df, metric, model_type, dataset_name):
 
 
 
-def calculate_ALC(result_df,dataset_name, metric):
-    from sklearn.metrics import auc
-    experiment_list = []
-    ALC_list = []
-    df = pd.DataFrame()
-    mean_by_k, std_by_k = pivot_table_result_by_method(result_df, metric)
-    for index, row in mean_by_k.iterrows():
-        x = row['mean'].index.values.astype(int)
-        y = row['mean'].values
-        ALC = auc(x, y) / auc(x, np.array(len(x) * [1]))
-        experiment_list.append(str(row['sample_method'].values + '-' + row['representation'].values))
-        ALC_list.append(ALC)
-    df['Experiment'] = experiment_list
-    df['ALC'] = ALC_list
-    p = Path(PurePosixPath('results').joinpath(dataset_name)).joinpath(time.strftime("%d_%m_%Y_%H%M%S") + 'ACL.csv')
-    df.to_csv(p, index=False)
 
-df = pd.read_csv('/Users/uri/nlp_active_learning/results/mr_sentence_polarity_embedded/mr_sentence_polarity_embedded24_04_2020_160848.csv')
-pivot_and_plot(df, 'recall', 'SVC', 'mr_sentence_polarity_embedded')
+
+#df = pd.read_csv('/Users/uri/nlp_active_learning/results/Final Results/Embedding_representation/trec5000_embedded26_04_2020_144424.csv')
+#pivot_and_plot(df, 'f1', 'SVM', 'toxic')
+
