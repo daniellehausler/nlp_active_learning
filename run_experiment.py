@@ -56,7 +56,7 @@ def run_experiment(
         if labelled_sentences.dtype != float:
             labelled_sentences = labelled_sentences.ravel()
 
-        chosen_samples['labels'].append(unlabelled_sentences[sampled_index])
+        chosen_samples['labels'].append(train_y[sampled_index])
         chosen_samples['sentences'].append(unlabelled_sentences[sampled_index])
 
         unlabelled_sentences, train_y, embeddings_train = remove_used_index(sampled_index, unlabelled_sentences,
