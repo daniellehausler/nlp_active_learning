@@ -218,6 +218,14 @@ class QBCRepresentativeSampler(QBCSampler, RepresentativeSampler):
         result_vector = qbc_vector * representative_vector
         return np.argpartition(-result_vector, self._n_samples)[: self._n_samples]
 
+    def qbc_dr_sample(self, qbc_method: staticmethod, representative_method: staticmethod,
+                      diversity_method: staticmethod):
+        qbc_vector = self.get_qbc_vector(qbc_method)
+        representative_vector = self.get_representative_vector(representative_method)
+        diversity_vector = self.get_representative_vector(diversity_method)
+        result_vector = qbc_vector * representative_vector * diversity_vector
+        return np.argpartition(-result_vector, self._n_samples)[: self._n_samples]
+
     def qbc_k_means_sample(self, qbc_method: staticmethod, kmens_method: staticmethod):
         qbc_vector = self.get_qbc_vector(qbc_method)
         most_uncertain = np.argsort(-qbc_vector)[:min(self._n_samples * 5, len(self._unlabelled_sentences))]
@@ -305,6 +313,16 @@ def qbc_knn_density_sample(unlabelled_vectors, labelled_vectors, n_samples, **sa
     return sampler.qbc_representative_sample(sampler.qbc_vote_entropy, sampler.knn_density)
 
 
+def qbc_knn_diverse_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = QBCRepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.qbc_dr_sample(sampler.qbc_vote_entropy, sampler.knn_density, sampler.diversity)
+
+
+def qbc_knn_mdr_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
+    sampler = QBCRepresentativeSampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
+    return sampler.qbc_dr_sample(sampler.qbc_vote_entropy, sampler.representative, sampler.diversity)
+
+
 def qbc_sample(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args):
     sampler = QBCSampler(unlabelled_vectors, labelled_vectors, n_samples, **sampling_args)
     return sampler.qbc_sample(sampler.qbc_vote_entropy)
@@ -347,6 +365,8 @@ QBC_SAMPLES = [
     qbc_representative_sample,
     qbc_knn_density_sample,
     qbc_k_means_sample,
+    qbc_knn_mdr_sample,
+    qbc_knn_diverse_sample,
     qbc_sample
 ]
 
@@ -354,6 +374,7 @@ EXPERIMENT_METHODS = [
     lc_most_distance_2_means,
     least_confidence_sample,
     qbc_knn_density_sample,
+    qbc_sample,
     mdr_sample,
     least_confidence_mdr_sample,
     least_confidence_k_means_sample,
